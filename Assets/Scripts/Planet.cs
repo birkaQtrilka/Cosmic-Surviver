@@ -20,20 +20,18 @@ public class Planet : MonoBehaviour
     [HideInInspector]
     public bool colourSettingsFoldout;
     
-    ShapeGenerator shapeGenerator;
+    ShapeGenerator shapeGenerator= new();
+    ColorGenerator colorGenerator= new();
 
     [SerializeField, HideInInspector] 
     MeshFilter[] meshFilters;
     TerrainFace[] terrainFaces;
     
-    //void Start()
-    //{
-    //    Initialize();
-    //    GenerateMesh();
-    //}
     void Initialize()
     {
-        shapeGenerator = new ShapeGenerator(shapeSettings);
+        shapeGenerator.UpdateSettings(shapeSettings) ;
+        colorGenerator.UpdateSettings(colorSettings);
+        
         if (meshFilters == null || meshFilters.Length == 0)
         {
             meshFilters = new MeshFilter[6];
@@ -49,10 +47,11 @@ public class Planet : MonoBehaviour
                 GameObject meshObj = new GameObject("mesh");
                 meshObj.transform.parent = transform;
 
-                meshObj.AddComponent<MeshRenderer>().sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                meshObj.AddComponent<MeshRenderer>();
                 meshFilters[i] = meshObj.AddComponent<MeshFilter>();
                 meshFilters[i].sharedMesh = new Mesh();
             }
+            meshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.planetMat;
 
             terrainFaces[i] = new TerrainFace(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i]);
             bool renderFace = faceRenderMask == FaceRenderMask.All || (int)faceRenderMask - 1 == i;
@@ -84,12 +83,11 @@ public class Planet : MonoBehaviour
             if (meshFilters[i].gameObject.activeSelf)
                 terrainFaces[i].ConstructMesh();
         }
+
+        colorGenerator.UpdateElevation(shapeGenerator.elevationMinMax);
     }
     void GenerateColours()
     {
-        foreach (var m in meshFilters)
-        {
-            m.GetComponent<MeshRenderer>().sharedMaterial.color = colorSettings.planetColor;
-        }
+        colorGenerator.UpdateColors();
     }
 }
