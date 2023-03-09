@@ -12,7 +12,7 @@ public class ColorGenerator
     {
         this.settings = settings;
         if(texture == null || texture.height != settings.biomeColorSettings.biomes.Length)
-            texture = new(textureResolution, settings.biomeColorSettings.biomes.Length, TextureFormat.RGBA32,false );
+            texture = new(textureResolution * 2, settings.biomeColorSettings.biomes.Length, TextureFormat.RGBA32,false );
         biomeNoiseFilter = NoiseFilterFactory.CreateNoiseFilter(settings.biomeColorSettings.noise);
         
     }
@@ -41,19 +41,27 @@ public class ColorGenerator
     }
     public void UpdateColors()
     {
-        Color32[] colors = new Color32[texture.width * texture.height] ;
-        int colorIndex = 0;
+        Color[] colours = new Color[texture.width * texture.height];
+        int colourIndex = 0;
         foreach (var biome in settings.biomeColorSettings.biomes)
         {
-            for (int i = 0; i < textureResolution; i++)
+            for (int i = 0; i < textureResolution * 2; i++)
             {
-                Color gradientColor = biome.gradient.Evaluate(i/(textureResolution-1f));
-                Color tintColor = biome.tint;
-                colors[colorIndex++] = gradientColor*(1-biome.tintPercent)+tintColor*biome.tintPercent;
+                Color gradientCol;
+                if (i < textureResolution)
+                {
+                    gradientCol = settings.oceanColor.Evaluate(i / (textureResolution - 1f));
+                }
+                else
+                {
+                    gradientCol = biome.gradient.Evaluate((i - textureResolution) / (textureResolution - 1f));
+                }
+                Color tintCol = biome.tint;
+                colours[colourIndex] = gradientCol * (1 - biome.tintPercent) + tintCol * biome.tintPercent;
+                colourIndex++;
             }
         }
-        
-        texture.SetPixels32(colors);
+        texture.SetPixels(colours);
         texture.Apply();
         settings.planetMat.SetTexture("_texture", texture);
     }

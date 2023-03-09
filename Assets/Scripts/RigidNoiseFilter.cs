@@ -23,14 +23,14 @@ public class RigidNoiseFilter : INoiseFilter
             float v =1- Mathf.Abs(noise.Evaluate(point * frequency + settings.centre));
             v *= v;
             v *= weight;
-            weight = v;
+            //weight = v;
             weight = Mathf.Clamp01 ( v * settings.weightMultiplier);
             noiseValue += v * amplitude;
             frequency *= settings.roughness;
             amplitude *= settings.persistence;
         }
 
-        noiseValue = Mathf.Max(0, noiseValue - settings.minValue);
+        noiseValue -=settings.minValue;
         return noiseValue * settings.strength;
     }
 }
