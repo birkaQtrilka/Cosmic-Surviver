@@ -44,7 +44,7 @@ public class ShapeGenerator
     }
     public float GetScaledElevation(float unscaledElevation)
     {
-        float elevation = Mathf.Max(0, unscaledElevation);
+        float elevation =  unscaledElevation;//clamping to above 0
         elevation = settings.planetRadius * (1 + elevation);
         return elevation;
     }
