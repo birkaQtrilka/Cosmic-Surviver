@@ -57,7 +57,7 @@ public class Planet : MonoBehaviour
 
             terrainFaces[i] = new TerrainFace(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i]);//same
             bool renderFace = faceRenderMask == FaceRenderMask.All || (int)faceRenderMask - 1 == i;
-            meshFilters[i].gameObject.SetActive(renderFace);
+            meshFilters[i].gameObject.SetActive(renderFace);//am schimbat ceva
         }
     }
     public void GeneratePlanet()
