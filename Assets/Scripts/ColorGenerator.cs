@@ -41,7 +41,7 @@ public class ColorGenerator
     }
     public void UpdateColors()
     {
-        Color[] colours = new Color[texture.width * texture.height];
+        Color32[] colours = new Color32[texture.width * texture.height];
         int colourIndex = 0;
         foreach (var biome in settings.biomeColorSettings.biomes)
         {
@@ -61,7 +61,7 @@ public class ColorGenerator
                 colourIndex++;
             }
         }
-        texture.SetPixels(colours);
+        texture.SetPixels32(colours);
         texture.Apply();
         settings.planetMat.SetTexture("_texture", texture);
     }

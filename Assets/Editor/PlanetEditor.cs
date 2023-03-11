@@ -22,6 +22,20 @@ public class PlanetEditor : Editor
 
         if (GUILayout.Button("Generate Planet"))
             planet.GeneratePlanet();
+        if (GUILayout.Button("Show Biomes"))
+        {
+            planet.shapeSettings.SetActiveAllNoises(false);
+            planet.colorSettings.MaximizeAllTints(true);
+            planet.GeneratePlanet();
+
+        }
+        if (GUILayout.Button("Hide Biomes"))
+        {
+            planet.shapeSettings.SetActiveAllNoises(true);
+            planet.colorSettings.MaximizeAllTints(false);
+            planet.GeneratePlanet();
+
+        }
 
         DrawSettingsEditor(planet.shapeSettings, planet.OnShapeSettingsUpdate, ref planet.shapeSettingsFoldout, ref shapeEditor);
         DrawSettingsEditor(planet.colorSettings, planet.OnColourSettingsUpdated,ref planet.colourSettingsFoldout, ref colourEditor);

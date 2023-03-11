@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   planetMat: {fileID: -876546973899608171, guid: ca2f60be1f7c06e409b88a51c6508347,
     type: 3}
+  oceanMat: {fileID: -876546973899608171, guid: c8a684b549f5fe147b0ffc225639faa5,
+    type: 3}
   biomeColorSettings:
     biomes:
     - gradient:

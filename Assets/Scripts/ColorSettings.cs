@@ -5,6 +5,7 @@ using UnityEngine;
 public class ColorSettings : ScriptableObject
 {
     public Material planetMat;
+    public Material oceanMat;
     public BiomeColorSettings biomeColorSettings;
     public Gradient oceanColor;
 
@@ -28,4 +29,12 @@ public class ColorSettings : ScriptableObject
             public float tintPercent;
         }
     }
+    public void MaximizeAllTints(bool flag)
+    {
+        foreach (var biome in biomeColorSettings.biomes)
+        {
+            biome.tintPercent = flag ? 1 : 0;//later store the actual tint value
+        }
+    }
+
 }
