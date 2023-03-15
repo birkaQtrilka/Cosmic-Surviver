@@ -7,15 +7,16 @@ public class TerrainFace
     public Mesh Mesh { get; }
     int resolution;
     int powResolution;
-
+    float oceanLevel;
     Vector3 localUp;
     Vector3 axisA;
     Vector3 axisB;
     ShapeGenerator shapeGenerator;
-    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp)
+    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp, float oceanLevel)
     {
         this.shapeGenerator = shapeGenerator;
         Mesh = mesh;
+        this.oceanLevel = oceanLevel;
         this.resolution = resolution;
         powResolution =  resolution * resolution;
         this.localUp = localUp;
@@ -23,14 +24,17 @@ public class TerrainFace
         axisA = new Vector3(localUp.y, localUp.z, localUp.x);
         axisB = Vector3.Cross(localUp, axisA);
     }
-    
+    public List<int> OceanVertexIndexes;
+    public Vector3[] UnscaledVerts;
     public void ConstructMesh()
     {
         Vector3[] vertices = new Vector3[powResolution];
+        OceanVertexIndexes = new();
         int[] triangles = new int[(resolution - 1) * (resolution - 1) * 6];
         int triIndex = 0;
         //bool[] waterVerts = new bool[powResolution];
-
+        bool sameUnscaledVerts = UnscaledVerts!=null&& UnscaledVerts.Length == powResolution;
+        UnscaledVerts = sameUnscaledVerts ? UnscaledVerts : new Vector3[powResolution];
         Vector2[] uv = (Mesh.uv.Length == powResolution) ?Mesh.uv:new Vector2[powResolution];
 
         for (int y = 0; y < resolution; y++)
@@ -44,12 +48,14 @@ public class TerrainFace
                 float unscaledElevation = shapeGenerator.CalculateUnscaledElevation(pointOnUnitSphere);
                 float scaledElev = shapeGenerator.GetScaledElevation(unscaledElevation);
                 vertices[i] = pointOnUnitSphere * scaledElev;
-                
-                //copy the vertecies under 0 for ocean info
-                //water mesh generation algorithm (I should search for a better one)
+                //i know it's not SOLID but fuck you
+                if(!sameUnscaledVerts)
+                    UnscaledVerts[i] = pointOnUnitSphere* shapeGenerator.GetScaledElevation(0);
+                if (unscaledElevation >= 0+oceanLevel)
+                    OceanVertexIndexes.Add(i);
                 
                 uv[i].y = unscaledElevation;
-                //unscaledElevationForOcean, maybe 0?
+
                 if (x != resolution - 1 && y != resolution - 1)
                 {
                     triangles[triIndex] = i;

@@ -7,6 +7,7 @@ public class Planet : MonoBehaviour
     [Range(2, 256)]
     public int resolution = 10;
     public bool autoUpdate = true;
+    public float oceanLevelRiser = 0.2f;
     public enum FaceRenderMask
     {
         All,Top,Bottom,Left,Right,Fron,Back
@@ -29,8 +30,9 @@ public class Planet : MonoBehaviour
 
     [SerializeField, HideInInspector]
     MeshFilter[] oMeshFilters;
+    [SerializeField,HideInInspector]
     OceanFace[] oceanFaces;
-    //OceanFace[] oceanFaces;
+    Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
 
     void Initialize()
     {
@@ -38,69 +40,57 @@ public class Planet : MonoBehaviour
         colorGenerator.UpdateSettings(colorSettings);
         
         if (meshFilters == null || meshFilters.Length == 0)
-        {
             meshFilters = new MeshFilter[6];
-        }
-        terrainFaces = new TerrainFace[6];
-        //oceanFaces = new[6];
+        if (oMeshFilters == null || oMeshFilters.Length == 0)
+            oMeshFilters = new MeshFilter[6];
 
-        Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
+        oceanFaces ??= new OceanFace[6];
+        terrainFaces = new TerrainFace[6];
+
 
         for (int i = 0; i < 6; i++)
         {
             if (meshFilters[i] == null)
             {
-                GameObject meshObj = new("mesh");//and new ocean mesh
-                meshObj.transform.parent = transform;//same
+                GameObject meshObj = new("mesh");
+                meshObj.transform.parent = transform;
 
-                meshObj.AddComponent<MeshRenderer>();//same
-                meshFilters[i] = meshObj.AddComponent<MeshFilter>();//same
-                meshFilters[i].sharedMesh = new Mesh();//same
+                meshObj.AddComponent<MeshRenderer>();
+                meshFilters[i] = meshObj.AddComponent<MeshFilter>();
+                meshFilters[i].sharedMesh = new Mesh();
+
+
             }
-            meshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.planetMat;//color settings.oceanMat
 
-            terrainFaces[i] = new TerrainFace(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i]);//same
-            bool renderFace = faceRenderMask == FaceRenderMask.All || (int)faceRenderMask - 1 == i;
-            meshFilters[i].gameObject.SetActive(renderFace);//am schimbat ceva
-        }
-    }
-    void InitializeOcean()
-    {
-        if (oMeshFilters == null || oMeshFilters.Length == 0)
-        {
-            oMeshFilters = new MeshFilter[6];
-        }
-        oceanFaces = new OceanFace[6];
-        //oceanFaces = new[6];
-
-
-        for (int i = 0; i < 6; i++)
-        {
             if (oMeshFilters[i] == null)
             {
-                GameObject meshObj = new("oceanMesh");//and new ocean mesh
-                meshObj.transform.parent = transform;//same
+                GameObject meshObj = new("oceanMesh");
+                meshObj.transform.parent = transform;
 
-                meshObj.AddComponent<MeshRenderer>();//same
-                oMeshFilters[i] = meshObj.AddComponent<MeshFilter>();//same
-                oMeshFilters[i].sharedMesh = new Mesh();//same
+                meshObj.AddComponent<MeshRenderer>();
+                oMeshFilters[i] = meshObj.AddComponent<MeshFilter>();
+                oMeshFilters[i].sharedMesh = new Mesh();
             }
-            oMeshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.oceanMat;//color settings.oceanMat
-
-            oceanFaces[i] = new (oMeshFilters[i].sharedMesh, terrainFaces[i],resolution*resolution,shapeSettings.planetRadius);//same
             bool renderFace = faceRenderMask == FaceRenderMask.All || (int)faceRenderMask - 1 == i;
-            oMeshFilters[i].gameObject.SetActive(renderFace);//am schimbat ceva
-        }
-    }
 
+            meshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.planetMat;
+            terrainFaces[i] = new TerrainFace(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i], oceanLevelRiser);
+            meshFilters[i].gameObject.SetActive(renderFace);
+
+            oceanFaces[i] ??= new();
+            oceanFaces[i].Initialize(oMeshFilters[i].sharedMesh, terrainFaces[i], resolution * resolution);
+            oMeshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.oceanMat;
+            oMeshFilters[i].gameObject.SetActive(renderFace);
+        }
+    
+    }
     void GenerateMesh()
     {
         for (int i = 0; i < 6; i++)
         {
             if (meshFilters[i].gameObject.activeSelf)
                 terrainFaces[i].ConstructMesh();
-            if (oMeshFilters[i].gameObject.activeSelf)
-                oceanFaces[i].ConstructMesh();
+            
         }
 
         colorGenerator.UpdateElevation(shapeGenerator.elevationMinMax);
@@ -114,11 +104,16 @@ public class Planet : MonoBehaviour
         }
         colorGenerator.UpdateColors();
     }
-
+    public void GenerateOcean()
+    {
+        for (int i = 0; i < 6; i++)
+        
+            if (oMeshFilters[i].gameObject.activeSelf)
+                oceanFaces[i].ConstructMesh();
+    }
     public void GeneratePlanet()
     {
         Initialize();
-        InitializeOcean();
         GenerateMesh();
         GenerateColours();
     }
@@ -126,7 +121,6 @@ public class Planet : MonoBehaviour
     {
         if (!autoUpdate) return;
         Initialize();
-        InitializeOcean();
 
         GenerateMesh();
     }
@@ -134,7 +128,6 @@ public class Planet : MonoBehaviour
     {
         if (!autoUpdate) return;
         Initialize();
-        //InitializeOcean();
 
         GenerateColours();
     }

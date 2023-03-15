@@ -22,6 +22,8 @@ public class PlanetEditor : Editor
 
         if (GUILayout.Button("Generate Planet"))
             planet.GeneratePlanet();
+        if (GUILayout.Button("Generate Ocean"))
+            planet.GenerateOcean();
         if (GUILayout.Button("Show Biomes"))
         {
             planet.shapeSettings.SetActiveAllNoises(false);
