@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class TerrainFace
@@ -7,16 +9,18 @@ public class TerrainFace
     public Mesh Mesh { get; }
     int resolution;
     int powResolution;
-    float oceanLevel;
     Vector3 localUp;
     Vector3 axisA;
     Vector3 axisB;
     ShapeGenerator shapeGenerator;
-    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp, float oceanLevel)
+    Vector3[] vertices;
+    List<Vector3> verticesB;
+    List<int> trianglesB;
+
+    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp)
     {
         this.shapeGenerator = shapeGenerator;
         Mesh = mesh;
-        this.oceanLevel = oceanLevel;
         this.resolution = resolution;
         powResolution =  resolution * resolution;
         this.localUp = localUp;
@@ -24,11 +28,18 @@ public class TerrainFace
         axisA = new Vector3(localUp.y, localUp.z, localUp.x);
         axisB = Vector3.Cross(localUp, axisA);
     }
-    public List<int> OceanVertexIndexes;
+    public HashSet<int> OceanVertexIndexes;
     public Vector3[] UnscaledVerts;
+    public void ConstructTree()
+    {
+        verticesB.Clear();
+        trianglesB.Clear();
+
+
+    }
     public void ConstructMesh()
     {
-        Vector3[] vertices = new Vector3[powResolution];
+        vertices = new Vector3[powResolution];
         OceanVertexIndexes = new();
         int[] triangles = new int[(resolution - 1) * (resolution - 1) * 6];
         int triIndex = 0;
@@ -45,15 +56,15 @@ public class TerrainFace
                 Vector2 percent = new Vector2(x, y) / (resolution - 1);
                 Vector3 pointOnUnitCube = localUp + (percent.x - .5f) * 2 * axisA + (percent.y - .5f) * 2 * axisB;
                 Vector3 pointOnUnitSphere = pointOnUnitCube.normalized;
+
                 float unscaledElevation = shapeGenerator.CalculateUnscaledElevation(pointOnUnitSphere);
                 float scaledElev = shapeGenerator.GetScaledElevation(unscaledElevation);
-                vertices[i] = pointOnUnitSphere * scaledElev;
+
                 //i know it's not SOLID but fuck you
                 if(!sameUnscaledVerts)
                     UnscaledVerts[i] = pointOnUnitSphere* shapeGenerator.GetScaledElevation(0);
-                if (unscaledElevation >= 0+oceanLevel)
-                    OceanVertexIndexes.Add(i);
                 
+                vertices[i] = pointOnUnitSphere * scaledElev;
                 uv[i].y = unscaledElevation;
 
                 if (x != resolution - 1 && y != resolution - 1)
@@ -69,13 +80,46 @@ public class TerrainFace
                 }
             }
         }
+        var elevations = new float[9];
+        for (int i = 0; i < uv.Length; i++)
+        {
+            float x, y;
+            y = i / resolution;
+            x = i - y * resolution;
+            if (x == resolution - 1 || y == resolution - 1 || y == 0 || x == 0)
+                continue;
+            int point = i,
+                downRight = i + resolution + 1,
+                down = i + resolution,
+                downLeft = i + resolution - 1,
+                left = i - 1,
+                upLeft = i - resolution - 1,
+                up = i - resolution,
+                upRight = i - resolution + 1,
+                right = i + 1;
+
+            elevations[0] = uv[point].y;
+            elevations[1] = uv[downRight].y;
+            elevations[2] = uv[down].y;
+            elevations[3] = uv[downLeft].y;
+            elevations[4] = uv[left].y;
+            elevations[5] = uv[upLeft].y;
+            elevations[6] = uv[up].y;
+            elevations[7] = uv[upRight].y;
+            elevations[8] = uv[right].y;
+
+            //if one of em is bellow 0, don't add  it
+            if (!elevations.Any(n=>n<=0))
+                OceanVertexIndexes.Add(point);
+            
+        }
         Mesh.Clear();
         Mesh.vertices = vertices;
         Mesh.triangles = triangles;
         Mesh.RecalculateNormals();
         Mesh.uv = uv;
     }
-
+    
     public void UpdateUVs(ColorGenerator colorGenerator)
     {
         Vector2[] uv = Mesh.uv;
@@ -95,41 +139,3 @@ public class TerrainFace
         Mesh.uv = uv;
     }
 }
-
-
-
-
-
-
-//if (scaledElev <= 0)
-//{
-//    int minusRes = i - resolution;
-//    int plusRes = i + resolution;
-//    waterVerts[i] = true;
-//    if (i - 1 >= 0)
-//    {
-//        waterVerts[i - 1] = true;
-//        if (minusRes >= 0)
-//        {
-//            waterVerts[minusRes] = true;
-//            if (minusRes - 1 >= 0)
-//                waterVerts[minusRes - 1] = true;
-
-//        }
-
-
-//    }
-
-//    if (i + 1 < powResolution)
-//    {
-//        waterVerts[i + 1] = true;
-//        if (plusRes < powResolution)
-//        {
-//            waterVerts[plusRes] = true;
-//            if (plusRes + 1 < powResolution)
-//                waterVerts[plusRes + 1] = true;
-//        }
-//    }
-//    //if()
-
-//}

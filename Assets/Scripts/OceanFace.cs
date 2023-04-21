@@ -7,8 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
-using static UnityEditor.Searcher.SearcherWindow.Alignment;
-[System.Serializable]
+[Serializable]
 public class OceanFace 
 {
     Mesh _mesh;
@@ -32,16 +31,26 @@ public class OceanFace
         _mesh.RecalculateNormals();
         _mesh.uv = _mesh.uv.Length == powResolution ? _mesh.uv : new Vector2[powResolution];
 
-        int trianglesL = _mesh.triangles.Length;
-        int vertLength = _mesh.vertices.Length;
+        var trigs = _mesh.triangles;
+        int trianglesL = trigs.Length;
+        int vertLength = trigs.Length;
         if (trianglesDisabled == null || trianglesL > trianglesDisabled.Length)
             trianglesDisabled = new bool[trianglesL];
         if (trisWithVertex == null || vertLength > trisWithVertex.Length)
             trisWithVertex = new List<int>[vertLength];
 
+        int trigsLength = trigs.Length;
         for (int i = 0; i < vertLength; i++)
-            trisWithVertex[i] = _mesh.triangles.IndexOf(i);
+        {
+            var result = new List<int>();
+            for (int j = 0; j < trigsLength; j++)
+                if (trigs[j] == i)
+                    result.Add(j);
 
+            trisWithVertex[i] = result;
+        }
+        
+        int deletedTrigs = 0; 
         Parallel.ForEach(terrainFace.OceanVertexIndexes, coord =>
         {
             for (int j = 0; j < trisWithVertex[coord].Count; ++j)
@@ -51,25 +60,22 @@ public class OceanFace
                 trianglesDisabled[value - remainder] = true;
                 trianglesDisabled[value - remainder + 1] = true;
                 trianglesDisabled[value - remainder + 2] = true;
-
+                deletedTrigs += 3;
             }
         });
 
-        _mesh.triangles = _mesh.triangles.RemoveAllSpecifiedIndicesFromArray(trianglesDisabled,trianglesL).ToArray();
+        var b = new List<int>();
+
         for (int i = 0; i < trianglesL; ++i)
-            trianglesDisabled[i] = false;
-      
+            if (trianglesDisabled[i])
+                trianglesDisabled[i] = false;
+            else
+                b.Add( _mesh.triangles[i]);        
+
+
+        _mesh.triangles = b.ToArray();
 
     }
 
 
-    
-
-    
-    
-
-    
-
-    
-    
 }
