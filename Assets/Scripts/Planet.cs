@@ -4,10 +4,10 @@ using UnityEngine;
 
 public class Planet : MonoBehaviour
 {
-    public static float size = 10;
+    //public static float size = 10;
     public static Transform player;
 
-    public static Dictionary<int, float> detailLevelDistances = new()
+    public readonly static Dictionary<int, float> detailLevelDistances = new()
     {
         { 0, Mathf.Infinity},
         { 1, 60f},
@@ -19,7 +19,30 @@ public class Planet : MonoBehaviour
         { 7, .3f},
         { 8, .1f},
     };
+    void Start()
+    {
+        player = GameObject.FindGameObjectWithTag("Player").transform;
 
+        Initialize();
+        GenerateMesh();
+
+        StartCoroutine(PlayerGenerationLoop());
+
+    }
+    void OnValidate()
+    {
+        if (player == null)
+            player = Camera.main.transform;
+    }
+    IEnumerator PlayerGenerationLoop()
+    {
+        var wait = new WaitForSeconds(1);
+        while (true)
+        {
+            yield return wait;
+            GenerateMesh();
+        }
+    }
     [Range(2, 256)]
     public int resolution = 10;
     public bool autoUpdate = true;
@@ -49,16 +72,8 @@ public class Planet : MonoBehaviour
     [SerializeField,HideInInspector]
     OceanFace[] oceanFaces;
     Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
-    void OnValidate()
-    {
-        if(player==null)
-            player = Camera.main.transform;
-        size = transform.localScale.x;
-    }
-    //private void OnDrawGizmos()
-    //{
-    //    Gizmos.DrawSphere(transform.position, shapeSettings.planetRadius);
-    //}
+    
+    
     void Initialize()
     {
         shapeGenerator.UpdateSettings(shapeSettings) ;
@@ -99,7 +114,7 @@ public class Planet : MonoBehaviour
             bool renderFace = faceRenderMask == FaceRenderMask.All || (int)faceRenderMask - 1 == i;
 
             meshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.planetMat;
-            terrainFaces[i] = new(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i]);
+            terrainFaces[i] = new(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i], shapeSettings.planetRadius);
             meshFilters[i].gameObject.SetActive(renderFace);
 
             oceanFaces[i] ??= new();
@@ -114,7 +129,7 @@ public class Planet : MonoBehaviour
         for (int i = 0; i < 6; i++)
         {
             if (meshFilters[i].gameObject.activeSelf)
-                terrainFaces[i].ConstructMesh();
+                terrainFaces[i].ConstructTree();
             
         }
 

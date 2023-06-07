@@ -12,19 +12,19 @@ public class TerrainFace
     Vector3 localUp;
     Vector3 axisA;
     Vector3 axisB;
-    ShapeGenerator shapeGenerator;
+    readonly ShapeGenerator shapeGenerator;
     Vector3[] vertices;
-    List<Vector3> verticesB;
-    List<int> trianglesB;
-
-    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp)
+    List<Vector3> verticesB = new();
+    List<int> trianglesB = new();
+    float radius;
+    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp, float radius)
     {
         this.shapeGenerator = shapeGenerator;
         Mesh = mesh;
         this.resolution = resolution;
         powResolution =  resolution * resolution;
         this.localUp = localUp;
-
+        this.radius = radius;
         axisA = new Vector3(localUp.y, localUp.z, localUp.x);
         axisB = Vector3.Cross(localUp, axisA);
     }
@@ -35,7 +35,21 @@ public class TerrainFace
         verticesB.Clear();
         trianglesB.Clear();
 
+        Chunk parentChunk = new (null, null, localUp.normalized, radius, 0, localUp, axisA, axisB);
+        parentChunk.GenerateChildren();
 
+        int triangleOffset = 0;
+        foreach (Chunk child in parentChunk.GetVisibleChildren())
+        {
+            (Vector3[] verts, int[] trigs) = child.CalculateVerticesAndTriangles(triangleOffset);
+            verticesB.AddRange(verts);
+            trianglesB.AddRange(trigs);
+        }
+
+        Mesh.Clear();
+        Mesh.vertices = verticesB.ToArray();
+        Mesh.triangles = trianglesB.ToArray();
+        Mesh.RecalculateNormals();
     }
     public void ConstructMesh()
     {
