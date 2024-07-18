@@ -16,6 +16,7 @@ public class TerrainFace
     Vector3[] vertices;
     List<Vector3> verticesB;
     List<int> trianglesB;
+    //public List<int> VerticesToRemove;
 
     public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp)
     {
@@ -28,7 +29,6 @@ public class TerrainFace
         axisA = new Vector3(localUp.y, localUp.z, localUp.x);
         axisB = Vector3.Cross(localUp, axisA);
     }
-    public HashSet<int> OceanVertexIndexes;
     public Vector3[] UnscaledVerts;
     public void ConstructTree()
     {
@@ -40,13 +40,14 @@ public class TerrainFace
     public void ConstructMesh()
     {
         vertices = new Vector3[powResolution];
-        OceanVertexIndexes = new();
         int[] triangles = new int[(resolution - 1) * (resolution - 1) * 6];
         int triIndex = 0;
         //bool[] waterVerts = new bool[powResolution];
         bool sameUnscaledVerts = UnscaledVerts!=null&& UnscaledVerts.Length == powResolution;
         UnscaledVerts = sameUnscaledVerts ? UnscaledVerts : new Vector3[powResolution];
         Vector2[] uv = (Mesh.uv.Length == powResolution) ?Mesh.uv:new Vector2[powResolution];
+
+        //VerticesToRemove = new(resolution);
 
         for (int y = 0; y < resolution; y++)
         {
@@ -78,41 +79,17 @@ public class TerrainFace
                     triangles[triIndex + 5] = i + resolution + 1;
                     triIndex += 6;
                 }
+
+
+                //bool isBellowOceanLevel = unscaledElevation <= 0;
+                //if (isBellowOceanLevel)
+                //{
+                //    VerticesToRemove.Add(i);
+                //}
             }
         }
-        var elevations = new float[9];
-        for (int i = 0; i < uv.Length; i++)
-        {
-            float x, y;
-            y = i / resolution;
-            x = i - y * resolution;
-            if (x == resolution - 1 || y == resolution - 1 || y == 0 || x == 0)
-                continue;
-            int point = i,
-                downRight = i + resolution + 1,
-                down = i + resolution,
-                downLeft = i + resolution - 1,
-                left = i - 1,
-                upLeft = i - resolution - 1,
-                up = i - resolution,
-                upRight = i - resolution + 1,
-                right = i + 1;
-
-            elevations[0] = uv[point].y;
-            elevations[1] = uv[downRight].y;
-            elevations[2] = uv[down].y;
-            elevations[3] = uv[downLeft].y;
-            elevations[4] = uv[left].y;
-            elevations[5] = uv[upLeft].y;
-            elevations[6] = uv[up].y;
-            elevations[7] = uv[upRight].y;
-            elevations[8] = uv[right].y;
-
-            //if one of em is bellow 0, don't add  it
-            if (!elevations.Any(n=>n<=0))
-                OceanVertexIndexes.Add(point);
-            
-        }
+        //it's all the heights of points in the surrounding verticles, icluding the center one (which is point)
+        
         Mesh.Clear();
         Mesh.vertices = vertices;
         Mesh.triangles = triangles;

@@ -104,7 +104,7 @@ public class Planet : MonoBehaviour
 
             oceanFaces[i] ??= new();
             oMeshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.oceanMat;
-            oceanFaces[i].Initialize(oMeshFilters[i].sharedMesh, terrainFaces[i], resolution * resolution);
+            oceanFaces[i].Initialize(oMeshFilters[i].sharedMesh, terrainFaces[i], resolution );
             oMeshFilters[i].gameObject.SetActive(renderFace);
         }
     

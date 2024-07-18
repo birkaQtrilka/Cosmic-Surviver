@@ -12,69 +12,68 @@ public class OceanFace
 {
     Mesh _mesh;
     int powResolution;
+    int _resolution;
     TerrainFace terrainFace;
 
-    bool[] trianglesDisabled;
-    List<int>[] trisWithVertex;
-    public void Initialize(Mesh mesh, TerrainFace face, int powResolution)
+    public void Initialize(Mesh mesh, TerrainFace face, int resolution)
     {
         _mesh = mesh;
         terrainFace = face;
-        this.powResolution = powResolution;
+        this.powResolution = resolution * resolution;
+        _resolution = resolution;
     }
 
     public void ConstructMesh()
     {
-        _mesh.Clear();
-        _mesh.vertices = terrainFace.UnscaledVerts;
-        _mesh.triangles = terrainFace.Mesh.triangles;//maybe i should copy it, not just reference
-        _mesh.RecalculateNormals();
-        _mesh.uv = _mesh.uv.Length == powResolution ? _mesh.uv : new Vector2[powResolution];
+        Vector3[] terrainVerts = terrainFace.UnscaledVerts;
 
-        var trigs = _mesh.triangles;
-        int trianglesL = trigs.Length;
-        int vertLength = trigs.Length;
-        if (trianglesDisabled == null || trianglesL > trianglesDisabled.Length)
-            trianglesDisabled = new bool[trianglesL];
-        if (trisWithVertex == null || vertLength > trisWithVertex.Length)
-            trisWithVertex = new List<int>[vertLength];
+        Vector2[] terrainUV = terrainFace.Mesh.uv;
+        List<int> triangles = new(terrainFace.Mesh.triangles.Length);
+        List<Vector3> vertices = new(terrainFace.Mesh.vertices.Length);
 
-        int trigsLength = trigs.Length;
-        for (int i = 0; i < vertLength; i++)
+        //I still need to delete
+        for (int i = 0; i < terrainUV.Length; i++)
         {
-            var result = new List<int>();
-            for (int j = 0; j < trigsLength; j++)
-                if (trigs[j] == i)
-                    result.Add(j);
+            float x, y;
+            y = i / _resolution;
+            x = i - y * _resolution;
+            if (x >= _resolution - 1 || y >= _resolution - 1)
+                continue;
+            int point = i,
+                downRight = i + _resolution + 1,
+                down = i + _resolution,
+                right = i + 1;
+            bool isBellowOceanLevel = 
+            terrainUV[point].y <= 0 ||
+            terrainUV[downRight].y <= 0 ||
+            terrainUV[down].y <= 0 ||
+            terrainUV[right].y <= 0;
 
-            trisWithVertex[i] = result;
+            if (!isBellowOceanLevel) continue;
+
+            vertices.Add(terrainVerts[point]);//-3
+            vertices.Add(terrainVerts[right]);//-2
+            vertices.Add(terrainVerts[downRight]);//-1
+            vertices.Add(terrainVerts[down]);//0
+
+            int lastVertexIndex = vertices.Count - 1;
+
+            triangles.Add(lastVertexIndex - 3);
+            triangles.Add(lastVertexIndex - 2);
+            triangles.Add(lastVertexIndex - 1);
+
+            triangles.Add(lastVertexIndex - 3);
+            triangles.Add(lastVertexIndex - 1);
+            triangles.Add(lastVertexIndex);
         }
-        
-        int deletedTrigs = 0; 
-        Parallel.ForEach(terrainFace.OceanVertexIndexes, coord =>
-        {
-            for (int j = 0; j < trisWithVertex[coord].Count; ++j)
-            {
-                int value = trisWithVertex[coord][j];
-                int remainder = value % 3;
-                trianglesDisabled[value - remainder] = true;
-                trianglesDisabled[value - remainder + 1] = true;
-                trianglesDisabled[value - remainder + 2] = true;
-                deletedTrigs += 3;
-            }
-        });
 
-        var b = new List<int>();
+        _mesh.Clear();
+        _mesh.vertices = vertices.ToArray();
+        _mesh.triangles = triangles.ToArray();
+        _mesh.RecalculateNormals();
+        Vector2[] uv = new Vector2[vertices.Count];
 
-        for (int i = 0; i < trianglesL; ++i)
-            if (trianglesDisabled[i])
-                trianglesDisabled[i] = false;
-            else
-                b.Add( _mesh.triangles[i]);        
-
-
-        _mesh.triangles = b.ToArray();
-
+        _mesh.uv = uv;
     }
 
 
