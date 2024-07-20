@@ -3,15 +3,53 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [Serializable]
-public class OceanFace 
+public class OceanFace
 {
+    readonly struct CornerIndexes
+    {
+        public readonly int Corner1Offset;
+        public readonly int Corner2Offset;
+
+        public CornerIndexes(int corner1, int corner2)
+        {
+            Corner1Offset = corner1;
+            Corner2Offset = corner2;
+        }
+    }
+
+    struct CellPoint
+    {
+        public bool IsAdditional;
+        public int OceanVertIndexOffset;
+        public CornerIndexes AdditionalPos;
+
+        public readonly static CornerIndexes north = new(0, 1);
+        public readonly static CornerIndexes east = new(1, 2);
+        public readonly static CornerIndexes south = new(2, 3);
+        public readonly static CornerIndexes west = new(3, 0);
+
+        public CellPoint(int offset)
+        {
+            IsAdditional = false;
+            OceanVertIndexOffset = offset;
+            AdditionalPos = new(0, 0);
+        }
+
+        public CellPoint(CornerIndexes additionalPos)
+        {
+            IsAdditional = true;
+            OceanVertIndexOffset = -999;
+            AdditionalPos = additionalPos;
+        }
+    }
+
     Mesh _mesh;
     int powResolution;
     int _resolution;
     TerrainFace terrainFace;
     ShapeGenerator shapeGenerator;
 
-    int downRight ;
+    int downRight;
     int down;
     int downLeft;
     int left;
@@ -21,31 +59,6 @@ public class OceanFace
     int right;
     int origin;
 
-    struct IsoLine
-    {
-        public bool IsAdditional;
-        public int OceanVertIndexOffset;
-        public (int,int) AdditionalPos;
-
-        public readonly static (int, int) north = (0,1) ;
-        public readonly static (int, int) east = (1,2) ;
-        public readonly static (int, int) south = (2,3) ;
-        public readonly static (int, int) west = (3,0) ;
-
-        public IsoLine(int offset)
-        {
-            IsAdditional = false;
-            OceanVertIndexOffset = offset;
-            AdditionalPos = (0,0);
-        }
-
-        public IsoLine((int,int) additionalPos)
-        {
-            IsAdditional = true;
-            OceanVertIndexOffset = -999;
-            AdditionalPos = additionalPos;
-        }
-    }
 
     public void Initialize(Mesh mesh, TerrainFace face, int resolution)
     {
@@ -68,11 +81,11 @@ public class OceanFace
 
     public void ConstructMesh()
     {
-        List<Vector3> vertices = GenerateVertices();
-        //List<Vector2> uv = new(powResolution);
+        List<Vector2> uvs = new(powResolution);
+        List<Vector3> vertices = GenerateVertices(uvs);
 
 
-        List<int> triangles = GenerateTriangles(vertices);
+        List<int> triangles = GenerateTriangles(vertices, uvs);
 
         _mesh.Clear();
         _mesh.vertices = vertices.ToArray();
@@ -81,7 +94,7 @@ public class OceanFace
         //_mesh.uv = uv.ToArray();
     }
 
-    List<Vector3> GenerateVertices()
+    List<Vector3> GenerateVertices(List<Vector2> uvs)
     {
 
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
@@ -105,13 +118,14 @@ public class OceanFace
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
+            Vector2 percent = new Vector2(x, y) / (_resolution - 1);
+            uvs.Add(percent);
 
             if (oceanVerts[i].isOcean)
             {
                 vertices.Add(oceanVerts[i].WorldPos);
                 oceanVerts[i].Index = vertices.Count - 1;
                 //how far it is from ocean level
-                //uv[i] = new Vector2(x / (float)_resolution, y / (float)_resolution);
                 continue;
             }
 
@@ -136,90 +150,92 @@ public class OceanFace
 
         return vertices;
     }
+
     //the 16 ways that a cell might look like mapped to how to order the verts in the triangles array
     //if it's a pole coordinate, that means it's a vert that should be created in between the existing vertices
-    IsoLine[][] InitLookUpTable()
+    CellPoint[][] InitLookUpTable()
     {
         //relative to topleft corner of cell (origin)
-        return new IsoLine[][]
+        return new CellPoint[][]
         {
-            new IsoLine[] { /*no triangles*/},//0
-            new IsoLine[] { // 1
+            new CellPoint[] { /*no triangles*/},//0
+            new CellPoint[] { // 1
                 //first triangle
-                new(IsoLine.west), new(IsoLine.south), new(down),
+                new(CellPoint.west), new(CellPoint.south), new(down),
             },
-            new IsoLine[] { //2
-                new(IsoLine.east), new(downRight), new(IsoLine.south),
+            new CellPoint[] { //2
+                new(CellPoint.east), new(downRight), new(CellPoint.south),
             },
-            new IsoLine[] { //3
+            new CellPoint[] { //3
                 //first triangle
-                new(IsoLine.west), new(downRight), new(down),
+                new(CellPoint.west), new(downRight), new(down),
                 //second triangle
-                new(IsoLine.west), new(IsoLine.east), new(downRight),
+                new(CellPoint.west), new(CellPoint.east), new(downRight),
             },
-            new IsoLine[] { //4
-                new(IsoLine.north), new(right), new(IsoLine.east),
+            new CellPoint[] { //4
+                new(CellPoint.north), new(right), new(CellPoint.east),
             },
-            new IsoLine[] { //5
-                new(IsoLine.west), new(IsoLine.south), new(down),
-                new(IsoLine.west), new(IsoLine.north), new(IsoLine.south),
-                new(IsoLine.north), new(IsoLine.east), new(IsoLine.south),
-                new(IsoLine.north), new(right), new(IsoLine.east),
+            new CellPoint[] { //5
+                new(CellPoint.west), new(CellPoint.south), new(down),
+                new(CellPoint.west), new(CellPoint.north), new(CellPoint.south),
+                new(CellPoint.north), new(CellPoint.east), new(CellPoint.south),
+                new(CellPoint.north), new(right), new(CellPoint.east),
             },
-            new IsoLine[] { //6
-                new(IsoLine.north), new(right), new(downRight),
-                new(IsoLine.north), new(downRight), new(IsoLine.south),
+            new CellPoint[] { //6
+                new(CellPoint.north), new(right), new(downRight),
+                new(CellPoint.north), new(downRight), new(CellPoint.south),
             },
-            new IsoLine[] { //7
-                new(IsoLine.west), new(downRight), new(down),
-                new(IsoLine.north), new(downRight), new(IsoLine.west),
-                new(IsoLine.north), new(right), new(downRight),
+            new CellPoint[] { //7
+                new(CellPoint.west), new(downRight), new(down),
+                new(CellPoint.north), new(downRight), new(CellPoint.west),
+                new(CellPoint.north), new(right), new(downRight),
             },
-            new IsoLine[] { //8
-                new(IsoLine.west), new(origin), new(IsoLine.north),
+            new CellPoint[] { //8
+                new(CellPoint.west), new(origin), new(CellPoint.north),
             },
-            new IsoLine[] { //9
-                new(origin), new(IsoLine.north), new(IsoLine.south),
-                new(origin), new(IsoLine.south), new(down),
+            new CellPoint[] { //9
+                new(origin), new(CellPoint.north), new(CellPoint.south),
+                new(origin), new(CellPoint.south), new(down),
             },
-            new IsoLine[] { //10
-                new(origin), new(IsoLine.north), new(IsoLine.west),
-                new(IsoLine.west), new(IsoLine.north), new(IsoLine.east),
-                new(IsoLine.west), new(IsoLine.east), new(IsoLine.south),
-                new(IsoLine.south), new(IsoLine.east), new(downRight),
+            new CellPoint[] { //10
+                new(origin), new(CellPoint.north), new(CellPoint.west),
+                new(CellPoint.west), new(CellPoint.north), new(CellPoint.east),
+                new(CellPoint.west), new(CellPoint.east), new(CellPoint.south),
+                new(CellPoint.south), new(CellPoint.east), new(downRight),
             },
-            new IsoLine[] { //11
-                new(origin), new(IsoLine.north), new(down),
-                new(IsoLine.north), new(IsoLine.east), new(down),
-                new(IsoLine.east), new(downRight), new(down),
+            new CellPoint[] { //11
+                new(origin), new(CellPoint.north), new(down),
+                new(CellPoint.north), new(CellPoint.east), new(down),
+                new(CellPoint.east), new(downRight), new(down),
             },
-            new IsoLine[] { //12
-                new(IsoLine.west), new(origin), new(IsoLine.east),
-                new(origin), new(right), new(IsoLine.east),
+            new CellPoint[] { //12
+                new(CellPoint.west), new(origin), new(CellPoint.east),
+                new(origin), new(right), new(CellPoint.east),
             },
-            new IsoLine[] { //13
-                new(origin), new(right), new(IsoLine.east),
-                new(origin), new(IsoLine.east), new(IsoLine.south),
-                new(origin), new(IsoLine.south), new(down),
+            new CellPoint[] { //13
+                new(origin), new(right), new(CellPoint.east),
+                new(origin), new(CellPoint.east), new(CellPoint.south),
+                new(origin), new(CellPoint.south), new(down),
             },
-             new IsoLine[] { //14
-                new(origin), new(right), new(IsoLine.west),
-                new(right), new(downRight), new(IsoLine.south),
-                new(right), new(IsoLine.south), new(IsoLine.west),
+             new CellPoint[] { //14
+                new(origin), new(right), new(CellPoint.west),
+                new(right), new(downRight), new(CellPoint.south),
+                new(right), new(CellPoint.south), new(CellPoint.west),
             },
-            new IsoLine[] { //15
+            new CellPoint[] { //15
                 new(origin), new(right), new(downRight),
                 new(origin), new(downRight), new(down)
             }
         };
     }
 
-    List<int> GenerateTriangles(List<Vector3> vertices)
+    List<int> GenerateTriangles(List<Vector3> vertices, List<Vector2> uvs)
     {
-        IsoLine[][] shoreContours = InitLookUpTable();
+        CellPoint[][] shoreContours = InitLookUpTable();
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
         List<int> triangles = new(terrainFace.Mesh.triangles.Length);
-        OceanVertData[] verts = new OceanVertData[4];
+        OceanVertData[] corners = new OceanVertData[4];
+        //adds to current grid position (x, y) to get desirable corner of cell
         Vector2[] offsets = new Vector2[]
         {
             new(0,0),
@@ -227,57 +243,64 @@ public class OceanFace
             new(1,1),
             new(0,1)
         };
+
         for (int i = 0; i < powResolution; i++)
         {
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
-            
+
             int y = i / _resolution;
             int x = i - y * _resolution;
+            Vector2 gridPos = new(x, y);
 
             if (x == _resolution - 1 || y == _resolution - 1) continue;// the edges don't form cells, so skip
-
-            verts[0] = oceanVerts[i];
-            verts[1] = oceanVerts[i + right];
-            verts[2] = oceanVerts[i + downRight];
-            verts[3] = oceanVerts[i + down];
+            //store all corners
+            corners[0] = oceanVerts[i];
+            corners[1] = oceanVerts[i + right];
+            corners[2] = oceanVerts[i + downRight];
+            corners[3] = oceanVerts[i + down];
 
             //checking the corners of cell to see what type of contour I need
-            int a = verts[0].isOcean ? 1 : 0;
-            int b = verts[1].isOcean ? 1 : 0;
-            int c = verts[2].isOcean ? 1 : 0;
-            int d = verts[3].isOcean ? 1 : 0;
+            int a = corners[0].isOcean ? 1 : 0;
+            int b = corners[1].isOcean ? 1 : 0;
+            int c = corners[2].isOcean ? 1 : 0;
+            int d = corners[3].isOcean ? 1 : 0;
 
             int shoreVertContour = GetContour(a, b, c, d);
             int addedVertIndex = vertices.Count;
-            foreach (IsoLine isoLine in shoreContours[shoreVertContour])//need to iterate by 2 verts
+            foreach (CellPoint cellPoint in shoreContours[shoreVertContour])
             {
-                if (!isoLine.IsAdditional)
+                if (!cellPoint.IsAdditional)
                 {
-                    triangles.Add(oceanVerts[i + isoLine.OceanVertIndexOffset].Index);
+                    triangles.Add(oceanVerts[i + cellPoint.OceanVertIndexOffset].Index);
                     continue;
                 }
-
-                OceanVertData point1 = verts[isoLine.AdditionalPos.Item1];
-                OceanVertData point2 = verts[isoLine.AdditionalPos.Item2];
-                Vector2 offset1 = offsets[isoLine.AdditionalPos.Item1];
-                Vector2 offset2 = offsets[isoLine.AdditionalPos.Item2];
-
-                Vector2 edgePoint = ApproximateContour(point1.DistanceToZero, point2.DistanceToZero, new(x + offset1.x, y + offset1.y), new(x + offset2.x, y + offset2.y));
+                //get oceanVertData of corner to use the "DistanceToZero" value
+                OceanVertData Corner1 = corners[cellPoint.AdditionalPos.Corner1Offset];
+                OceanVertData Corner2 = corners[cellPoint.AdditionalPos.Corner2Offset];
+                //get grid position of corner to calculate the vertex position
+                Vector2 corner1Pos = offsets[cellPoint.AdditionalPos.Corner1Offset] + gridPos;
+                Vector2 corner2Pos = offsets[cellPoint.AdditionalPos.Corner2Offset] + gridPos;
+                //add +1 so the linear interpolation can aproximate position to one
+                Vector2 edgePoint = LerpCloseToOne(Corner1.DistanceToZero + 1, Corner2.DistanceToZero + 1, corner1Pos, corner2Pos);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
                 Vector3 vertex = pointOnUnitSphere * shapeGenerator.GetScaledElevation(0);
-                
+                Vector2 percent = new Vector2(edgePoint.x, edgePoint.y) / (_resolution - 1);
+                uvs.Add(percent);
                 vertices.Add(vertex);
                 triangles.Add(addedVertIndex++);
+                //uv add x and y based on percent on cube pos
             }
 
         }
         return triangles;
     }
 
-    Vector2 ApproximateContour(float valueA, float valueB, Vector2 a, Vector2 b)
+    Vector2 LerpCloseToOne(float valueA, float valueB, Vector2 a, Vector2 b)
     {
         return Vector2.Lerp(a, b, (1 - valueA) / (valueB - valueA));
+        //return a + (1 - valueA) / (valueB - valueA) * (b - a);
     }
+
     // abcd are the values of a binary number xxxx, they represent the corners of the cell
     //     a   b   <--- one cell
     //     d   c

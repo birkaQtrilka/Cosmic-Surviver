@@ -13,15 +13,15 @@ public class TerrainFace
     readonly int resolution;
     readonly int powResolution;
     Vector3[] vertices;
-
-    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp)
+    readonly float _oceanLevel;
+    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp, float oceanLevel = 0f)
     {
-        this.ShapeGenerator = shapeGenerator;
+        ShapeGenerator = shapeGenerator;
         Mesh = mesh;
         this.resolution = resolution;
         powResolution =  resolution * resolution;
-        this.LocalUp = localUp;
-
+        LocalUp = localUp;
+        _oceanLevel = oceanLevel;
         AxisA = new Vector3(localUp.y, localUp.z, localUp.x);
         AxisB = Vector3.Cross(localUp, AxisA);
     }
@@ -52,10 +52,10 @@ public class TerrainFace
                 //to avoid another loop in ocean face class, I'm flagging verts as bellow zero here
                 BellowZeroVertices[i] = new OceanVertData()
                 {
-                    isOcean = unscaledElevation <= 0,
+                    isOcean = unscaledElevation - _oceanLevel <= 0,
                     WorldPos = pointOnUnitSphere * ShapeGenerator.PlanetRadius,
                     Index = i,
-                    DistanceToZero = unscaledElevation
+                    DistanceToZero = unscaledElevation - _oceanLevel
                 } ;//marking ocean verts
 
                 uv[i].y = unscaledElevation;

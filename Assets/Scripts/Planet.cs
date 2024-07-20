@@ -23,7 +23,7 @@ public class Planet : MonoBehaviour
     [Range(2, 256)]
     public int resolution = 10;
     public bool autoUpdate = true;
-    public float oceanLevelRiser = 0.2f;
+    [SerializeField] float _oceanLevel = 0.2f;
     public enum FaceRenderMask
     {
         All,Top,Bottom,Left,Right,Fron,Back
@@ -59,6 +59,11 @@ public class Planet : MonoBehaviour
     //{
     //    Gizmos.DrawSphere(transform.position, shapeSettings.planetRadius);
     //}
+    private void Start()
+    {
+        GeneratePlanet();
+        GenerateOcean();
+    }
     void Initialize()
     {
         shapeGenerator.UpdateSettings(shapeSettings) ;
@@ -99,7 +104,7 @@ public class Planet : MonoBehaviour
             bool renderFace = faceRenderMask == FaceRenderMask.All || (int)faceRenderMask - 1 == i;
 
             meshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.planetMat;
-            terrainFaces[i] = new(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i]);
+            terrainFaces[i] = new(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i], _oceanLevel);
             meshFilters[i].gameObject.SetActive(renderFace);
 
             oceanFaces[i] ??= new();
@@ -116,7 +121,7 @@ public class Planet : MonoBehaviour
         {
             if (meshFilters[i].gameObject.activeSelf)
                 terrainFaces[i].ConstructMesh();
-            
+            meshFilters[i].transform.position = Vector3.zero;
         }
 
         colorGenerator.UpdateElevation(shapeGenerator.elevationMinMax);
@@ -126,7 +131,12 @@ public class Planet : MonoBehaviour
     {
         for (int i = 0; i < 6; i++)
             if (oMeshFilters[i].gameObject.activeSelf)
+            {
                 oceanFaces[i].ConstructMesh();
+                oMeshFilters[i].transform.position = Vector3.zero;
+
+            }
+
     }
 
     void GenerateColours()
