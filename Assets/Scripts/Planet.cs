@@ -109,6 +109,7 @@ public class Planet : MonoBehaviour
         }
     
     }
+
     void GenerateMesh()
     {
         for (int i = 0; i < 6; i++)
@@ -120,12 +121,14 @@ public class Planet : MonoBehaviour
 
         colorGenerator.UpdateElevation(shapeGenerator.elevationMinMax);
     }
+
     public void GenerateOcean()
     {
         for (int i = 0; i < 6; i++)
             if (oMeshFilters[i].gameObject.activeSelf)
                 oceanFaces[i].ConstructMesh();
     }
+
     void GenerateColours()
     {
         for (int i = 0; i < 6; i++)
@@ -135,6 +138,7 @@ public class Planet : MonoBehaviour
         }
         colorGenerator.UpdateColors();
     }
+
     public void GeneratePlanet()
     {
         Initialize();
@@ -149,6 +153,7 @@ public class Planet : MonoBehaviour
 
         GenerateMesh();
     }
+
     public void OnColourSettingsUpdated()
     {
         if (!autoUpdate) return;

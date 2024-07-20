@@ -10,6 +10,7 @@ public class OceanFace
     int _resolution;
     TerrainFace terrainFace;
     ShapeGenerator shapeGenerator;
+
     int downRight ;
     int down;
     int downLeft;
@@ -19,23 +20,26 @@ public class OceanFace
     int upRight;
     int right;
     int origin;
+
     struct IsoLine
     {
         public bool IsAdditional;
         public int OceanVertIndexOffset;
-        public Vector2 AdditionalPos;
+        public (int,int) AdditionalPos;
 
-        public readonly static Vector2 north = new (.5f, 0);
-        public readonly static Vector2 east = new (1f,.5f);
-        public readonly static Vector2 south = new (.5f,1f);
-        public readonly static Vector2 west = new (0,.5f);
+        public readonly static (int, int) north = (0,1) ;
+        public readonly static (int, int) east = (1,2) ;
+        public readonly static (int, int) south = (2,3) ;
+        public readonly static (int, int) west = (3,0) ;
+
         public IsoLine(int offset)
         {
             IsAdditional = false;
             OceanVertIndexOffset = offset;
-            AdditionalPos = new Vector2();
+            AdditionalPos = (0,0);
         }
-        public IsoLine(Vector2 additionalPos)
+
+        public IsoLine((int,int) additionalPos)
         {
             IsAdditional = true;
             OceanVertIndexOffset = -999;
@@ -47,9 +51,9 @@ public class OceanFace
     {
         _mesh = mesh;
         terrainFace = face;
-        this.powResolution = resolution * resolution;
+        powResolution = resolution * resolution;
         _resolution = resolution;
-        shapeGenerator = terrainFace.shapeGenerator;
+        shapeGenerator = terrainFace.ShapeGenerator;
 
         downRight = _resolution + 1;
         down = _resolution;
@@ -79,10 +83,11 @@ public class OceanFace
 
     List<Vector3> GenerateVertices()
     {
-        OceanVertData[] oceanVerts = terrainFace.VerticesToRemove;
+
+        OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
         List<Vector3> vertices = new(powResolution);
 
-        int[] neighborOffsets = new int[]
+        int[] neighborOffsets = new int[]//for convenience
         {
             downRight,
             down,
@@ -94,21 +99,23 @@ public class OceanFace
             right
         };
 
-        //mark shore verts in parallel NOT YET PARALLEl
+        //can be parallel
+        //marks the surrounding vertices of bellow zero vertices as "shore", so they can be later used to create the square marching edges
         for (int i = 0; i < oceanVerts.Length; i++)
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
 
-            if (oceanVerts[i].isOcean)  // Skip ocean points
+            if (oceanVerts[i].isOcean)
             {
                 vertices.Add(oceanVerts[i].WorldPos);
-                oceanVerts[i].index = vertices.Count - 1;
+                oceanVerts[i].Index = vertices.Count - 1;
+                //how far it is from ocean level
                 //uv[i] = new Vector2(x / (float)_resolution, y / (float)_resolution);
                 continue;
             }
 
-            // Check each neighboring point
+            // looks if any of the verts surrounding this vert is a bellow zero one (isOcean)
             foreach (int offset in neighborOffsets)
             {
                 int neighborIndex = i + offset;
@@ -119,7 +126,8 @@ public class OceanFace
                     Math.Abs(neighborX - x) <= 1 && Math.Abs(neighborY - y) <= 1 &&
                     oceanVerts[neighborIndex].isOcean)
                 {
-                    oceanVerts[i].isShore = true;
+                    oceanVerts[i].isShore = true;// don't add them in the vertices list yet because we will create new vertices 
+                    //that will be positioned according to the square marching algorithm
                     break; // No need to check further if already marked as shore
                 }
             }
@@ -128,7 +136,8 @@ public class OceanFace
 
         return vertices;
     }
-
+    //the 16 ways that a cell might look like mapped to how to order the verts in the triangles array
+    //if it's a pole coordinate, that means it's a vert that should be created in between the existing vertices
     IsoLine[][] InitLookUpTable()
     {
         //relative to topleft corner of cell (origin)
@@ -136,16 +145,16 @@ public class OceanFace
         {
             new IsoLine[] { /*no triangles*/},//0
             new IsoLine[] { // 1
-                /*first triangle*/
+                //first triangle
                 new(IsoLine.west), new(IsoLine.south), new(down),
             },
             new IsoLine[] { //2
                 new(IsoLine.east), new(downRight), new(IsoLine.south),
             },
             new IsoLine[] { //3
-                /*first triangle*/
+                //first triangle
                 new(IsoLine.west), new(downRight), new(down),
-                /*second triangle*/
+                //second triangle
                 new(IsoLine.west), new(IsoLine.east), new(downRight),
             },
             new IsoLine[] { //4
@@ -207,52 +216,74 @@ public class OceanFace
 
     List<int> GenerateTriangles(List<Vector3> vertices)
     {
-        IsoLine[][] lookUpTable = InitLookUpTable();
-        OceanVertData[] oceanVerts = terrainFace.VerticesToRemove;
-        Vector3 localUp = terrainFace.localUp;
-        Vector3 axisA = terrainFace.axisA;
-        Vector3 axisB = terrainFace.axisB;
+        IsoLine[][] shoreContours = InitLookUpTable();
+        OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
         List<int> triangles = new(terrainFace.Mesh.triangles.Length);
-
-        //make triangles, use square marching algorithm, can be done in parrallel
+        OceanVertData[] verts = new OceanVertData[4];
+        Vector2[] offsets = new Vector2[]
+        {
+            new(0,0),
+            new(1,0),
+            new(1,1),
+            new(0,1)
+        };
         for (int i = 0; i < powResolution; i++)
         {
-            if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;
+            if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
             
             int y = i / _resolution;
             int x = i - y * _resolution;
 
-            if (x == _resolution - 1 || y == _resolution - 1) continue;
+            if (x == _resolution - 1 || y == _resolution - 1) continue;// the edges don't form cells, so skip
 
-            int a = oceanVerts[i].isOcean ? 1 : 0;
-            int b = oceanVerts[i + right].isOcean ? 1 : 0;
-            int c = oceanVerts[i + downRight].isOcean ? 1 : 0;
-            int d = oceanVerts[i + down].isOcean ? 1 : 0;
+            verts[0] = oceanVerts[i];
+            verts[1] = oceanVerts[i + right];
+            verts[2] = oceanVerts[i + downRight];
+            verts[3] = oceanVerts[i + down];
 
-            int shoreVertState = GetState(a, b, c, d);
+            //checking the corners of cell to see what type of contour I need
+            int a = verts[0].isOcean ? 1 : 0;
+            int b = verts[1].isOcean ? 1 : 0;
+            int c = verts[2].isOcean ? 1 : 0;
+            int d = verts[3].isOcean ? 1 : 0;
+
+            int shoreVertContour = GetContour(a, b, c, d);
             int addedVertIndex = vertices.Count;
-
-            foreach (IsoLine isoLine in lookUpTable[shoreVertState])
+            foreach (IsoLine isoLine in shoreContours[shoreVertContour])//need to iterate by 2 verts
             {
-                if (isoLine.IsAdditional)//maybe I need to add all additionals then do the rest
+                if (!isoLine.IsAdditional)
                 {
-                    Vector2 percent = new Vector2(x + isoLine.AdditionalPos.x, y + isoLine.AdditionalPos.y) / (_resolution - 1);//add substract .5f to get north/west/east.. points
-                    Vector3 pointOnUnitCube = localUp + (percent.x - .5f) * 2 * axisA + (percent.y - .5f) * 2 * axisB;
-                    Vector3 pointOnUnitSphere = pointOnUnitCube.normalized;
-                    Vector3 vertex = pointOnUnitSphere * shapeGenerator.GetScaledElevation(0);
-                    
-                    vertices.Add(vertex);
-                    triangles.Add(addedVertIndex++);
+                    triangles.Add(oceanVerts[i + isoLine.OceanVertIndexOffset].Index);
                     continue;
                 }
-                triangles.Add(oceanVerts[i + isoLine.OceanVertIndexOffset].index);
+
+                OceanVertData point1 = verts[isoLine.AdditionalPos.Item1];
+                OceanVertData point2 = verts[isoLine.AdditionalPos.Item2];
+                Vector2 offset1 = offsets[isoLine.AdditionalPos.Item1];
+                Vector2 offset2 = offsets[isoLine.AdditionalPos.Item2];
+
+                Vector2 edgePoint = ApproximateContour(point1.DistanceToZero, point2.DistanceToZero, new(x + offset1.x, y + offset1.y), new(x + offset2.x, y + offset2.y));
+                Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
+                Vector3 vertex = pointOnUnitSphere * shapeGenerator.GetScaledElevation(0);
+                
+                vertices.Add(vertex);
+                triangles.Add(addedVertIndex++);
             }
 
         }
         return triangles;
     }
 
-    int GetState(int a, int b, int c, int d)
+    Vector2 ApproximateContour(float valueA, float valueB, Vector2 a, Vector2 b)
+    {
+        return Vector2.Lerp(a, b, (1 - valueA) / (valueB - valueA));
+    }
+    // abcd are the values of a binary number xxxx, they represent the corners of the cell
+    //     a   b   <--- one cell
+    //     d   c
+    // the result is mapped to an entry in the lookup table that returns which countour
+    // corresponds to the corners formation
+    int GetContour(int a, int b, int c, int d)
     {
         return a * 8 + b * 4 + c * 2 + d * 1;
     }

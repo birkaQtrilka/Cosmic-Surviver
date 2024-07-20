@@ -5,6 +5,7 @@ public class ShapeGenerator
     ShapeSettings settings;
     INoiseFilter[] noiseFilters;
     public MinMax elevationMinMax;
+    public float PlanetRadius => settings.planetRadius;
     public void UpdateSettings(ShapeSettings settings)
     {
         this.settings = settings;
@@ -42,6 +43,7 @@ public class ShapeGenerator
         elevationMinMax.AddValue(elevation);
         return  elevation ;
     }
+
     public float GetScaledElevation(float unscaledElevation)
     {
         float elevation =  unscaledElevation;//clamping to above 0
