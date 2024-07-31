@@ -46,8 +46,7 @@ public class ShapeGenerator
 
     public float GetScaledElevation(float unscaledElevation)
     {
-        float elevation =  unscaledElevation;//clamping to above 0
-        elevation = settings.planetRadius * (1 + elevation);
-        return elevation;
+        unscaledElevation = settings.planetRadius * (1 + unscaledElevation);
+        return unscaledElevation;
     }
 }

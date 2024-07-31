@@ -54,8 +54,8 @@ public class TerrainFace
                 {
                     isOcean = unscaledElevation - _oceanLevel <= 0,
                     WorldPos = pointOnUnitSphere * ShapeGenerator.PlanetRadius,
-                    Index = i,
-                    DistanceToZero = unscaledElevation - _oceanLevel
+                    VerticesArrayIndex = i,
+                    DistanceToOceanLevel = unscaledElevation - _oceanLevel
                 } ;//marking ocean verts
 
                 uv[i].y = unscaledElevation;

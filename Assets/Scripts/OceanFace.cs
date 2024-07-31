@@ -17,11 +17,11 @@ public class OceanFace
         }
     }
 
-    struct CellPoint
+    readonly struct CellPoint
     {
-        public bool IsAdditional;
-        public int OceanVertIndexOffset;
-        public CornerIndexes AdditionalPos;
+        public readonly bool IsAdditional;
+        public readonly int OceanVertIndexOffset;
+        public readonly CornerIndexes AdditionalPos;
 
         public readonly static CornerIndexes north = new(0, 1);
         public readonly static CornerIndexes east = new(1, 2);
@@ -59,6 +59,14 @@ public class OceanFace
     int right;
     int origin;
 
+    readonly Vector2[] _gridPosOffsets = new Vector2[]
+    {
+        new(0,0),
+        new(1,0),
+        new(1,1),
+        new(0,1)
+    };
+    readonly OceanVertData[] _corners = new OceanVertData[4];
 
     public void Initialize(Mesh mesh, TerrainFace face, int resolution)
     {
@@ -81,20 +89,17 @@ public class OceanFace
 
     public void ConstructMesh()
     {
-        List<Vector2> uvs = new(powResolution);
-        List<Vector3> vertices = GenerateVertices(uvs);
+        List<Vector3> vertices = GenerateVertices();
 
-
-        List<int> triangles = GenerateTriangles(vertices, uvs);
+        List<int> triangles = GenerateTriangles(vertices);
 
         _mesh.Clear();
         _mesh.vertices = vertices.ToArray();
         _mesh.triangles = triangles.ToArray();
         _mesh.RecalculateNormals();
-        //_mesh.uv = uv.ToArray();
     }
 
-    List<Vector3> GenerateVertices(List<Vector2> uvs)
+    List<Vector3> GenerateVertices()
     {
 
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
@@ -118,13 +123,11 @@ public class OceanFace
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
-            Vector2 percent = new Vector2(x, y) / (_resolution - 1);
-            uvs.Add(percent);
 
             if (oceanVerts[i].isOcean)
             {
                 vertices.Add(oceanVerts[i].WorldPos);
-                oceanVerts[i].Index = vertices.Count - 1;
+                oceanVerts[i].VerticesArrayIndex = vertices.Count - 1;
                 //how far it is from ocean level
                 continue;
             }
@@ -229,20 +232,13 @@ public class OceanFace
         };
     }
 
-    List<int> GenerateTriangles(List<Vector3> vertices, List<Vector2> uvs)
+    List<int> GenerateTriangles(List<Vector3> vertices)
     {
         CellPoint[][] shoreContours = InitLookUpTable();
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
         List<int> triangles = new(terrainFace.Mesh.triangles.Length);
-        OceanVertData[] corners = new OceanVertData[4];
         //adds to current grid position (x, y) to get desirable corner of cell
-        Vector2[] offsets = new Vector2[]
-        {
-            new(0,0),
-            new(1,0),
-            new(1,1),
-            new(0,1)
-        };
+        
 
         for (int i = 0; i < powResolution; i++)
         {
@@ -250,20 +246,21 @@ public class OceanFace
 
             int y = i / _resolution;
             int x = i - y * _resolution;
-            Vector2 gridPos = new(x, y);
 
             if (x == _resolution - 1 || y == _resolution - 1) continue;// the edges don't form cells, so skip
-            //store all corners
-            corners[0] = oceanVerts[i];
-            corners[1] = oceanVerts[i + right];
-            corners[2] = oceanVerts[i + downRight];
-            corners[3] = oceanVerts[i + down];
+            Vector2 gridPos = new(x, y);
+
+            //to later retrieve the points of the line that the additional vertex will sit on
+            _corners[0] = oceanVerts[i];
+            _corners[1] = oceanVerts[i + right];
+            _corners[2] = oceanVerts[i + downRight];
+            _corners[3] = oceanVerts[i + down];
 
             //checking the corners of cell to see what type of contour I need
-            int a = corners[0].isOcean ? 1 : 0;
-            int b = corners[1].isOcean ? 1 : 0;
-            int c = corners[2].isOcean ? 1 : 0;
-            int d = corners[3].isOcean ? 1 : 0;
+            int a = CastToInt(_corners[0].isOcean);
+            int b = CastToInt(_corners[1].isOcean);
+            int c = CastToInt(_corners[2].isOcean);
+            int d = CastToInt(_corners[3].isOcean);
 
             int shoreVertContour = GetContour(a, b, c, d);
             int addedVertIndex = vertices.Count;
@@ -271,34 +268,38 @@ public class OceanFace
             {
                 if (!cellPoint.IsAdditional)
                 {
-                    triangles.Add(oceanVerts[i + cellPoint.OceanVertIndexOffset].Index);
+                    triangles.Add(oceanVerts[i + cellPoint.OceanVertIndexOffset].VerticesArrayIndex);
                     continue;
                 }
-                //get oceanVertData of corner to use the "DistanceToZero" value
-                OceanVertData Corner1 = corners[cellPoint.AdditionalPos.Corner1Offset];
-                OceanVertData Corner2 = corners[cellPoint.AdditionalPos.Corner2Offset];
-                //get grid position of corner to calculate the vertex position
-                Vector2 corner1Pos = offsets[cellPoint.AdditionalPos.Corner1Offset] + gridPos;
-                Vector2 corner2Pos = offsets[cellPoint.AdditionalPos.Corner2Offset] + gridPos;
-                //add +1 so the linear interpolation can aproximate position to one
-                Vector2 edgePoint = LerpCloseToOne(Corner1.DistanceToZero + 1, Corner2.DistanceToZero + 1, corner1Pos, corner2Pos);
+                Vector2 edgePoint = GetLerpedEdgePoint(cellPoint, gridPos);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
-                Vector3 vertex = pointOnUnitSphere * shapeGenerator.GetScaledElevation(0);
-                Vector2 percent = new Vector2(edgePoint.x, edgePoint.y) / (_resolution - 1);
-                uvs.Add(percent);
+                Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
+
                 vertices.Add(vertex);
                 triangles.Add(addedVertIndex++);
-                //uv add x and y based on percent on cube pos
             }
 
         }
         return triangles;
     }
 
+    Vector2 GetLerpedEdgePoint(CellPoint cellPoint, Vector2 gridPos)
+    {
+        int corner1Offset = cellPoint.AdditionalPos.Corner1Offset;
+        int corner2Offset = cellPoint.AdditionalPos.Corner2Offset;
+        //get oceanVertData of corner to use the "DistanceToZero" value
+        OceanVertData Corner1VertData = _corners[corner1Offset];
+        OceanVertData Corner2VertData = _corners[corner2Offset];
+        //get grid position of corner to calculate the vertex position
+        Vector2 corner1Pos = _gridPosOffsets[corner1Offset] + gridPos;
+        Vector2 corner2Pos = _gridPosOffsets[corner2Offset] + gridPos;
+        //add 1 so the linear interpolation can aproximate position to one
+        return LerpCloseToOne(Corner1VertData.DistanceToOceanLevel + 1, Corner2VertData.DistanceToOceanLevel + 1, corner1Pos, corner2Pos);
+    }
+
     Vector2 LerpCloseToOne(float valueA, float valueB, Vector2 a, Vector2 b)
     {
         return Vector2.Lerp(a, b, (1 - valueA) / (valueB - valueA));
-        //return a + (1 - valueA) / (valueB - valueA) * (b - a);
     }
 
     // abcd are the values of a binary number xxxx, they represent the corners of the cell
@@ -309,5 +310,10 @@ public class OceanFace
     int GetContour(int a, int b, int c, int d)
     {
         return a * 8 + b * 4 + c * 2 + d * 1;
+    }
+
+    int CastToInt(bool boolean)
+    {
+        return boolean ? 1 : 0;
     }
 }
