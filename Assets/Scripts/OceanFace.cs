@@ -285,16 +285,19 @@ public class OceanFace
 
     Vector2 GetLerpedEdgePoint(CellPoint cellPoint, Vector2 gridPos)
     {
-        int corner1Offset = cellPoint.AdditionalPos.Corner1Offset;
-        int corner2Offset = cellPoint.AdditionalPos.Corner2Offset;
+        int corner1Index = cellPoint.AdditionalPos.Corner1Offset;
+        int corner2Index = cellPoint.AdditionalPos.Corner2Offset;
         //get oceanVertData of corner to use the "DistanceToZero" value
-        OceanVertData Corner1VertData = _corners[corner1Offset];
-        OceanVertData Corner2VertData = _corners[corner2Offset];
-        //get grid position of corner to calculate the vertex position
-        Vector2 corner1Pos = _gridPosOffsets[corner1Offset] + gridPos;
-        Vector2 corner2Pos = _gridPosOffsets[corner2Offset] + gridPos;
-        //add 1 so the linear interpolation can aproximate position to one
-        return LerpCloseToOne(Corner1VertData.DistanceToOceanLevel + 1, Corner2VertData.DistanceToOceanLevel + 1, corner1Pos, corner2Pos);
+        OceanVertData Corner1VertData = _corners[corner1Index];
+        OceanVertData Corner2VertData = _corners[corner2Index];
+        //lerp between these positions to get the edge point
+        Vector2 corner1Pos = _gridPosOffsets[corner1Index] + gridPos;
+        Vector2 corner2Pos = _gridPosOffsets[corner2Index] + gridPos;
+        //ocean level is interpreted as 0, but for the interpolation formula to work, I need to interpret it as 1, so I just add one to a and b
+        float a = Corner1VertData.DistanceToOceanLevel + 1;
+        float b = Corner2VertData.DistanceToOceanLevel + 1;
+        return LerpCloseToOne(a , b, corner1Pos, corner2Pos);
+
     }
 
     Vector2 LerpCloseToOne(float valueA, float valueB, Vector2 a, Vector2 b)

@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
@@ -9,21 +7,25 @@ public class PlanetEditor : Editor
     Planet planet;
     Editor shapeEditor;
     Editor colourEditor;
+
     public override void OnInspectorGUI()
     {
         using (var check = new EditorGUI.ChangeCheckScope())
         {
             base.OnInspectorGUI();
-            if(check.changed)
+
+            if(check.changed && planet.autoUpdate)
             {
                 planet.GeneratePlanet();
             }
         }
 
         if (GUILayout.Button("Generate Planet"))
+        {
             planet.GeneratePlanet();
-        if (GUILayout.Button("Generate Ocean"))
             planet.GenerateOcean();
+        }
+        
         if (GUILayout.Button("Show Biomes"))
         {
             planet.shapeSettings.SetActiveAllNoises(false);
@@ -42,6 +44,7 @@ public class PlanetEditor : Editor
         DrawSettingsEditor(planet.shapeSettings, planet.OnShapeSettingsUpdate, ref planet.shapeSettingsFoldout, ref shapeEditor);
         DrawSettingsEditor(planet.colorSettings, planet.OnColourSettingsUpdated,ref planet.colourSettingsFoldout, ref colourEditor);
     }
+
     void DrawSettingsEditor(Object settings, System.Action onSettingsUpdated,ref bool foldout,ref Editor editor)
     {
         if (settings == null) return;
@@ -57,6 +60,7 @@ public class PlanetEditor : Editor
             }
         }
     }
+
     void OnEnable()
     {
         planet = (Planet)target;
