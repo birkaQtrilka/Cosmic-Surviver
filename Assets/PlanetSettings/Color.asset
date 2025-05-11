@@ -82,7 +82,7 @@ MonoBehaviour:
         m_NumAlphaKeys: 2
       tint: {r: 0, g: 0, b: 0, a: 1}
       startHeight: 0.164
-      tintPercent: 0
+      tintPercent: 0.389
     - gradient:
         serializedVersion: 2
         key0: {r: 0.654902, g: 0.8862746, b: 1, a: 1}

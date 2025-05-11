@@ -5,6 +5,8 @@ using UnityEngine;
 [Serializable]
 public class OceanFace
 {
+    //the algorithm goes cell by cell, this data structure is to represent 2 corners of a cell
+    //0-top left corner, 1-top right, 2-bottom left, 3-bottom right
     readonly struct CornerIndexes
     {
         public readonly int Corner1Offset;
@@ -19,10 +21,13 @@ public class OceanFace
 
     readonly struct CellPoint
     {
+        //additional position means another point between the already existing ocean vertices
         public readonly bool IsAdditional;
-        public readonly int OceanVertIndexOffset;
         public readonly CornerIndexes AdditionalPos;
 
+        public readonly int OceanVertIndexOffset;
+        //the numbers mean between what points of the cell is the additional position.
+        //0-top left corner, 1-top right, 2-bottom left, 3-bottom right
         public readonly static CornerIndexes north = new(0, 1);
         public readonly static CornerIndexes east = new(1, 2);
         public readonly static CornerIndexes south = new(2, 3);
@@ -38,7 +43,7 @@ public class OceanFace
         public CellPoint(CornerIndexes additionalPos)
         {
             IsAdditional = true;
-            OceanVertIndexOffset = -999;
+            OceanVertIndexOffset = int.MinValue;
             AdditionalPos = additionalPos;
         }
     }
@@ -49,6 +54,7 @@ public class OceanFace
     TerrainFace terrainFace;
     ShapeGenerator shapeGenerator;
 
+    //used to move through the vertices array
     int downRight;
     int down;
     int downLeft;
@@ -58,7 +64,7 @@ public class OceanFace
     int upRight;
     int right;
     int origin;
-
+    //represents all corners of the current checked cell
     readonly Vector2[] _gridPosOffsets = new Vector2[]
     {
         new(0,0),
