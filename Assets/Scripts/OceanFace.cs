@@ -257,7 +257,11 @@ public class OceanFace
             int x = i - y * _resolution;
             if(oceanVerts[i].isOcean)
             {
-                Vector2 uv = new Vector2(x,y) / (_resolution - 1);
+                Vector3 dir = terrainFace.GetUnitSpherePointFromXY(x, y);
+                float u = 0.5f + Mathf.Atan2(dir.z, dir.x) / (2f * Mathf.PI);
+                float v = 0.5f - Mathf.Asin(dir.y) / Mathf.PI;
+
+                Vector2 uv = new(u, v);
                 uvs.Add(uv);
             }
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
@@ -288,7 +292,10 @@ public class OceanFace
                 }
                 Vector2 edgePoint = GetLerpedEdgePoint(cellPoint, gridPos);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
-                Vector2 uv = new Vector2(edgePoint.x, edgePoint.y) / (_resolution - 1);
+                
+                float u = 0.5f + Mathf.Atan2(pointOnUnitSphere.z, pointOnUnitSphere.x) / (2f * Mathf.PI);
+                float v = 0.5f - Mathf.Asin(pointOnUnitSphere.y) / Mathf.PI;
+                Vector2 uv = new(u,v) ;
                 Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
 
                 uvQueue.Enqueue(uv);
