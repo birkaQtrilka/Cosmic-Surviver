@@ -292,9 +292,9 @@ public class OceanFace
                 }
                 Vector2 edgePoint = GetLerpedEdgePoint(cellPoint, gridPos);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
-                
                 float u = 0.5f + Mathf.Atan2(pointOnUnitSphere.z, pointOnUnitSphere.x) / (2f * Mathf.PI);
                 float v = 0.5f - Mathf.Asin(pointOnUnitSphere.y) / Mathf.PI;
+                Debug.Log(u.ToString() + ", " + v.ToString());
                 Vector2 uv = new(u,v) ;
                 Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
 
