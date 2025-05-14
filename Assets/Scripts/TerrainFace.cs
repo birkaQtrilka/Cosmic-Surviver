@@ -3,10 +3,10 @@ using UnityEngine;
 public class TerrainFace
 {
     public Mesh Mesh { get; }
-    Vector3 LocalUp { get; }
+    public Vector3 LocalUp { get; }
     //axes perpendicular to localUp
-    Vector3 AxisA { get; }
-    Vector3 AxisB { get; }
+    public Vector3 AxisA { get; }
+    public Vector3 AxisB { get; }
     public ShapeGenerator ShapeGenerator { get; }
     public OceanVertData[] BellowZeroVertices { get; private set; }
 
@@ -78,6 +78,7 @@ public class TerrainFace
         Mesh.triangles = triangles;
         Mesh.RecalculateNormals();
         Mesh.uv = uv;
+        
     }
     
     public void UpdateUVs(ColorGenerator colorGenerator)

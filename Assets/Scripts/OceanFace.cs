@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SocialPlatforms;
+using static UnityEditor.Searcher.SearcherWindow.Alignment;
 
 [Serializable]
 public class OceanFace
@@ -97,11 +99,13 @@ public class OceanFace
     {
         List<Vector3> vertices = GenerateVertices();
 
-        List<int> triangles = GenerateTriangles(vertices);
+        (List<int> triangles, List<Vector2> uvs) = GenerateTrianglesAndAddAdditionalVertices(vertices);
 
         _mesh.Clear();
         _mesh.vertices = vertices.ToArray();
         _mesh.triangles = triangles.ToArray();
+        _mesh.uv = uvs.ToArray();
+        //_mesh.normals = GenerateNormals(vertices).ToArray();
         _mesh.RecalculateNormals();
     }
 
@@ -238,20 +242,25 @@ public class OceanFace
         };
     }
 
-    List<int> GenerateTriangles(List<Vector3> vertices)
+    (List<int>, List<Vector2>) GenerateTrianglesAndAddAdditionalVertices(List<Vector3> vertices)
     {
         CellPoint[][] shoreContours = InitLookUpTable();
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
         List<int> triangles = new(terrainFace.Mesh.triangles.Length);
+        List<Vector2> uvs = new();
         //adds to current grid position (x, y) to get desirable corner of cell
-        
+        Queue<Vector2> uvQueue = new();
 
         for (int i = 0; i < powResolution; i++)
         {
-            if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
-
             int y = i / _resolution;
             int x = i - y * _resolution;
+            if(oceanVerts[i].isOcean)
+            {
+                Vector2 uv = new Vector2(x,y) / (_resolution - 1);
+                uvs.Add(uv);
+            }
+            if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
 
             if (x == _resolution - 1 || y == _resolution - 1) continue;// the edges don't form cells, so skip
             Vector2 gridPos = new(x, y);
@@ -279,14 +288,31 @@ public class OceanFace
                 }
                 Vector2 edgePoint = GetLerpedEdgePoint(cellPoint, gridPos);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
+                Vector2 uv = new Vector2(edgePoint.x, edgePoint.y) / (_resolution - 1);
                 Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
 
+                uvQueue.Enqueue(uv);
                 vertices.Add(vertex);
                 triangles.Add(addedVertIndex++);
             }
-
         }
-        return triangles;
+
+        while (uvQueue.Count > 0)
+        {
+            uvs.Add(uvQueue.Dequeue());
+        }
+        return (triangles, uvs);
+    }
+
+    List<Vector3> GenerateNormals(List<Vector3> vertices)
+    {
+        List<Vector3> normals = new(vertices.Count);
+        foreach (Vector3 vert in vertices)
+        {
+            normals.Add(vert.normalized);
+        }
+
+        return normals;
     }
 
     Vector2 GetLerpedEdgePoint(CellPoint cellPoint, Vector2 gridPos)
