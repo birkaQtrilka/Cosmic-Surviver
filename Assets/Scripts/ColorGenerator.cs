@@ -67,32 +67,33 @@ public class ColorGenerator
         texture.SetPixels32(colours);
         texture.Apply();
         settings.planetMat.SetTexture("_texture", texture);
-        
+    }
+
+    public void SaveTexture()
+    {
 #if UNITY_EDITOR
 
         string assetPath = "Assets/Generated/" + settings.name + "PlanetTexture.asset";
 
-        // Ensure directory exists
         string directory = Path.GetDirectoryName(assetPath);
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        // If the asset already exists, delete it
         if (AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath) != null)
         {
+            Texture2D newTexture = new(textureResolution * 2, settings.biomeColorSettings.biomes.Length, TextureFormat.RGBA32, false);
+            newTexture.SetPixels32(texture.GetPixels32());
+            newTexture.Apply();
             AssetDatabase.DeleteAsset(assetPath);
+            texture = newTexture;
         }
 
-        // Create and save the new texture asset
         AssetDatabase.CreateAsset(texture, assetPath);
         AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
+        settings.planetMat.SetTexture("_texture", texture);
 
-        // Mark relevant objects dirty for saving in Editor
-        EditorUtility.SetDirty(settings.planetMat);
-        EditorUtility.SetDirty(settings);
 #endif
     }
 }

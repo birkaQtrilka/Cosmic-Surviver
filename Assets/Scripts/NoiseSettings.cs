@@ -21,6 +21,7 @@ public class NoiseSettings
         public float persistence = .5f;
         public Vector3 centre;
         public float minValue;
+        public float density;
     }
     [System.Serializable]
     public class RigidNoiseSettings: SimpleNoiseSettings

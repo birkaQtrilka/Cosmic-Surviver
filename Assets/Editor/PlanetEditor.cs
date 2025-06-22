@@ -42,6 +42,11 @@ public class PlanetEditor : Editor
             planet.EnableOceanMeshes();
 
         }
+        if (GUILayout.Button("Save Color Texture"))
+        {
+            planet.SaveColorTexture();
+        }
+
 
         DrawSettingsEditor(planet.shapeSettings, planet.OnShapeSettingsUpdate, ref planet.shapeSettingsFoldout, ref shapeEditor);
         DrawSettingsEditor(planet.colorSettings, planet.OnColourSettingsUpdated,ref planet.colourSettingsFoldout, ref colourEditor);

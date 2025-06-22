@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1e30693783f4cb48abfb5466963dd05, type: 3}
   m_Name: Color
   m_EditorClassIdentifier: 
-  planetMat: {fileID: -876546973899608171, guid: ca2f60be1f7c06e409b88a51c6508347,
-    type: 3}
+  planetMat: {fileID: 2100000, guid: 150479bfa8d28f7459b8fd3af7ab5f9c, type: 2}
   oceanMat: {fileID: 2100000, guid: eebadfd52e6c8564785b023e5f40da23, type: 2}
   biomeColorSettings:
     biomes:
@@ -168,6 +167,6 @@ MonoBehaviour:
     atime6: 0
     atime7: 0
     m_Mode: 0
-    m_ColorSpace: 0
+    m_ColorSpace: -1
     m_NumColorKeys: 4
     m_NumAlphaKeys: 2

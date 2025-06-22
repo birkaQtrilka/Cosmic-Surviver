@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityEngine;
-
+[SelectionBase]
 public class Planet : MonoBehaviour
 {
     public static Transform player;
@@ -45,6 +45,10 @@ public class Planet : MonoBehaviour
             player = Camera.main.transform;
     }
     
+    public void SaveColorTexture()
+    {
+        colorGenerator.SaveTexture();
+    }
     
     void Initialize()
     {
