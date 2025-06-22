@@ -14,8 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   planetMat: {fileID: -876546973899608171, guid: ca2f60be1f7c06e409b88a51c6508347,
     type: 3}
-  oceanMat: {fileID: -876546973899608171, guid: d83d84a889e997d469d61f6de93f4772,
-    type: 3}
+  oceanMat: {fileID: 2100000, guid: eebadfd52e6c8564785b023e5f40da23, type: 2}
   biomeColorSettings:
     biomes:
     - name: arctic
@@ -118,7 +117,7 @@ MonoBehaviour:
         m_NumColorKeys: 4
         m_NumAlphaKeys: 2
       tint: {r: 1, g: 0.6604271, b: 0, a: 1}
-      startHeight: 0.53
+      startHeight: 1
       tintPercent: 0
     noise:
       filterType: 0

@@ -1,24 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 
 public class Planet : MonoBehaviour
 {
-    public static float size = 10;
     public static Transform player;
-
-    public static Dictionary<int, float> detailLevelDistances = new()
-    {
-        { 0, Mathf.Infinity},
-        { 1, 60f},
-        { 2, 25f},
-        { 3, 10f},
-        { 4, 4f},
-        { 5, 1.5f},
-        { 6, .7f},
-        { 7, .3f},
-        { 8, .1f},
-    };
 
     [Range(2, 256)]
     public int resolution = 10;
@@ -32,6 +19,8 @@ public class Planet : MonoBehaviour
 
     public ShapeSettings shapeSettings;
     public ColorSettings colorSettings;
+    public bool HasOceanMesh = true;
+
     [HideInInspector]
     public bool shapeSettingsFoldout;
     [HideInInspector]
@@ -49,29 +38,33 @@ public class Planet : MonoBehaviour
     [SerializeField,HideInInspector]
     OceanFace[] oceanFaces;
     Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
+
     void OnValidate()
     {
         if(player==null)
             player = Camera.main.transform;
-        size = transform.localScale.x;
     }
     
-    private void Start()
-    {
-        GeneratePlanet();
-        GenerateOcean();
-    }
+    
     void Initialize()
     {
+        var oldPos = transform.position;
+        transform.position = Vector3.zero;
+
         shapeGenerator.UpdateSettings(shapeSettings) ;
         colorGenerator.UpdateSettings(colorSettings);
         
         if (meshFilters == null || meshFilters.Length == 0)
             meshFilters = new MeshFilter[6];
-        if (oMeshFilters == null || oMeshFilters.Length == 0)
-            oMeshFilters = new MeshFilter[6];
-        if (oceanFaces == null || oceanFaces.Length == 0)
-            oceanFaces = new OceanFace[6];
+        
+        if(HasOceanMesh)
+        {
+            if (oMeshFilters == null || oMeshFilters.Length == 0)
+                oMeshFilters = new MeshFilter[6];
+            if (oceanFaces == null || oceanFaces.Length == 0)
+                oceanFaces = new OceanFace[6];
+        }
+        
         terrainFaces = new TerrainFace[6];
 
 
@@ -89,7 +82,7 @@ public class Planet : MonoBehaviour
 
             }
 
-            if (oMeshFilters[i] == null)
+            if (HasOceanMesh && oMeshFilters[i] == null)
             {
                 GameObject meshObj = new("oceanMesh");
                 meshObj.transform.parent = transform;
@@ -103,13 +96,15 @@ public class Planet : MonoBehaviour
             meshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.planetMat;
             terrainFaces[i] = new(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i], _oceanLevel);
             meshFilters[i].gameObject.SetActive(renderFace);
+            if (!HasOceanMesh) continue;
 
             oceanFaces[i] ??= new();
             oMeshFilters[i].GetComponent<MeshRenderer>().sharedMaterial = colorSettings.oceanMat;
             oceanFaces[i].Initialize(oMeshFilters[i].sharedMesh, terrainFaces[i], resolution );
             oMeshFilters[i].gameObject.SetActive(renderFace);
         }
-    
+        transform.position = oldPos;
+
     }
 
     public void DisableOceanMeshes()
@@ -127,6 +122,8 @@ public class Planet : MonoBehaviour
 
     void GenerateMesh()
     {
+        var oldPos = transform.position;
+        transform.position = Vector3.zero;
         for (int i = 0; i < 6; i++)
         {
             if (meshFilters[i].gameObject.activeSelf)
@@ -135,10 +132,15 @@ public class Planet : MonoBehaviour
         }
 
         colorGenerator.UpdateElevation(shapeGenerator.elevationMinMax);
+        transform.position = oldPos;
     }
 
     public void GenerateOcean()
     {
+        if (!HasOceanMesh) return;
+
+        var oldPos = transform.position;
+        transform.position = Vector3.zero;
         for (int i = 0; i < 6; i++)
             if (oMeshFilters[i].gameObject.activeSelf)
             {
@@ -146,7 +148,7 @@ public class Planet : MonoBehaviour
                 oMeshFilters[i].transform.position = Vector3.zero;
 
             }
-
+        transform.position = oldPos;
     }
 
     void GenerateColours()
@@ -161,6 +163,7 @@ public class Planet : MonoBehaviour
 
     public void GeneratePlanet()
     {
+        
         Initialize();
         GenerateMesh();
         GenerateColours();

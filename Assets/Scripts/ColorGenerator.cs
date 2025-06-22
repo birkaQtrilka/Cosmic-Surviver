@@ -1,5 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
 
 public class ColorGenerator 
@@ -63,5 +67,32 @@ public class ColorGenerator
         texture.SetPixels32(colours);
         texture.Apply();
         settings.planetMat.SetTexture("_texture", texture);
+        
+#if UNITY_EDITOR
+
+        string assetPath = "Assets/Generated/" + settings.name + "PlanetTexture.asset";
+
+        // Ensure directory exists
+        string directory = Path.GetDirectoryName(assetPath);
+        if (!Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        // If the asset already exists, delete it
+        if (AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath) != null)
+        {
+            AssetDatabase.DeleteAsset(assetPath);
+        }
+
+        // Create and save the new texture asset
+        AssetDatabase.CreateAsset(texture, assetPath);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        // Mark relevant objects dirty for saving in Editor
+        EditorUtility.SetDirty(settings.planetMat);
+        EditorUtility.SetDirty(settings);
+#endif
     }
 }
