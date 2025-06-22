@@ -21,6 +21,7 @@ public class ColorSettings : ScriptableObject
         [System.Serializable]
         public class Biome
         {
+            public string name;
             public Gradient gradient;
             public Color tint;
             [Range(0,1)]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SocialPlatforms;
 using static UnityEditor.Searcher.SearcherWindow.Alignment;
@@ -27,7 +28,7 @@ public class OceanFace
         public readonly bool IsAdditional;
         public readonly CornerIndexes AdditionalPos;
 
-        public readonly int OceanVertIndexOffset;
+        public readonly int IndexOffset;
         //the numbers mean between what points of the cell is the additional position.
         //0-top left corner, 1-top right, 2-bottom left, 3-bottom right
         public readonly static CornerIndexes north = new(0, 1);
@@ -38,14 +39,14 @@ public class OceanFace
         public CellPoint(int offset)
         {
             IsAdditional = false;
-            OceanVertIndexOffset = offset;
+            IndexOffset = offset;
             AdditionalPos = new(0, 0);
         }
 
         public CellPoint(CornerIndexes additionalPos)
         {
             IsAdditional = true;
-            OceanVertIndexOffset = int.MinValue;
+            IndexOffset = int.MinValue;
             AdditionalPos = additionalPos;
         }
     }
@@ -244,7 +245,7 @@ public class OceanFace
 
     (List<int>, List<Vector2>) GenerateTrianglesAndAddAdditionalVertices(List<Vector3> vertices)
     {
-        CellPoint[][] shoreContours = InitLookUpTable();
+        CellPoint[][] cellLookup = InitLookUpTable();
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
         List<int> triangles = new(terrainFace.Mesh.triangles.Length);
         List<Vector2> uvs = new();
@@ -255,13 +256,20 @@ public class OceanFace
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
-            if(oceanVerts[i].isOcean)
+            if (oceanVerts[i].isOcean)
             {
                 Vector3 dir = terrainFace.GetUnitSpherePointFromXY(x, y);
-                float u = 0.5f + Mathf.Atan2(dir.z, dir.x) / (2f * Mathf.PI);
-                float v = 0.5f - Mathf.Asin(dir.y) / Mathf.PI;
 
-                Vector2 uv = new(u, v);
+                Vector2 uv = GetUV(dir);
+
+                //if (uv.x < 0.05 || uv.x > 0.95)
+                //    uvs.Add(Vector2.zero);
+                //else
+                //if (uv.x > 0.95) // tweak threshold as needed
+                //{
+                //    uvs.Add(Vector2.zero);
+                //}
+                //else
                 uvs.Add(uv);
             }
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
@@ -276,39 +284,167 @@ public class OceanFace
             _corners[3] = oceanVerts[i + down];
 
             //checking the corners of cell to see what type of contour I need
-            int a = CastToInt(_corners[0].isOcean);
-            int b = CastToInt(_corners[1].isOcean);
-            int c = CastToInt(_corners[2].isOcean);
-            int d = CastToInt(_corners[3].isOcean);
+            int a = BoolToInt(_corners[0].isOcean);
+            int b = BoolToInt(_corners[1].isOcean);
+            int c = BoolToInt(_corners[2].isOcean);
+            int d = BoolToInt(_corners[3].isOcean);
 
-            int shoreVertContour = GetContour(a, b, c, d);
+            int contourHash = GetContour(a, b, c, d);
             int addedVertIndex = vertices.Count;
-            foreach (CellPoint cellPoint in shoreContours[shoreVertContour])
+            foreach (CellPoint cellVert in cellLookup[contourHash])
             {
-                if (!cellPoint.IsAdditional)
+                
+                if (!cellVert.IsAdditional)
                 {
-                    triangles.Add(oceanVerts[i + cellPoint.OceanVertIndexOffset].VerticesArrayIndex);
+                    //goes through the cells 
+                    triangles.Add(oceanVerts[i + cellVert.IndexOffset].VerticesArrayIndex);
                     continue;
                 }
-                Vector2 edgePoint = GetLerpedEdgePoint(cellPoint, gridPos);
+                //the point that sits in between two vertices of the current cell
+                Vector2 edgePoint = GetLerpedEdgePoint(cellVert, gridPos);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
-                float u = 0.5f + Mathf.Atan2(pointOnUnitSphere.z, pointOnUnitSphere.x) / (2f * Mathf.PI);
-                float v = 0.5f - Mathf.Asin(pointOnUnitSphere.y) / Mathf.PI;
-                Debug.Log(u.ToString() + ", " + v.ToString());
-                Vector2 uv = new(u,v) ;
-                Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
 
+                Vector2 uv = GetUV(pointOnUnitSphere);
+                Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
+                
                 uvQueue.Enqueue(uv);
                 vertices.Add(vertex);
                 triangles.Add(addedVertIndex++);
             }
+            
         }
-
+        //find out if uv line goes 
         while (uvQueue.Count > 0)
         {
             uvs.Add(uvQueue.Dequeue());
         }
+
+        for (int i = 0; i < triangles.Count; i += 3)
+        {
+            FixTriangle
+            (
+                i, i + 1, i + 2,
+                triangles[i], triangles[i + 1], triangles[i + 2],
+                uvs, vertices, triangles
+            );
+        }
+
         return (triangles, uvs);
+    }
+
+
+
+    void FixTriangle(int t1, int t2, int t3, int v1, int v2, int v3, List<Vector2> uvs, List<Vector3> vertices, List<int> triangles)
+    {
+        Vector2 uv0 = uvs[v1];
+        Vector2 uv1 = uvs[v2];
+        Vector2 uv2 = uvs[v3];
+
+        float minU = Mathf.Min(uv0.x, Mathf.Min(uv1.x, uv2.x));
+        float maxU = Mathf.Max(uv0.x, Mathf.Max(uv1.x, uv2.x));
+
+        // If the triangle spans the 0/1 seam
+        if (maxU - minU > 0.5f)
+        {
+            // Fix wrap by duplicating vertices with corrected UVs
+            v1 = FixWrappedUV(v1, uvs, vertices);
+            v2 = FixWrappedUV(v2, uvs, vertices);
+            v3 = FixWrappedUV(v3, uvs, vertices);
+        }
+
+        triangles[t1] = v1;
+        triangles[t2] = v2;
+        triangles[t3] = v3;
+    }
+
+    int FixWrappedUV(int index, List<Vector2> uvs, List<Vector3> vertices)
+    {
+        Vector3 v = vertices[index];
+        Vector2 uv = uvs[index];
+
+        if (uv.x < 0.5f)
+        {
+            // Need to shift U up to unwrap the seam
+            uv.x += 1f;
+            vertices.Add(v);
+            uvs.Add(uv);
+            return vertices.Count - 1; // return new index
+        }
+        else
+        {
+            return index; // no change
+        }
+    }
+
+    Vector2 GetUV(Vector3 dir)
+    {
+        float u = 0.5f + Mathf.Atan2(dir.z, dir.x) / (2 * Mathf.PI);
+        float v = 0.5f - Mathf.Asin(dir.y) / Mathf.PI;
+        return new Vector2(u, v);
+    }
+
+    Vector2 GetUV2(Vector3 dir)
+    {
+        float absX = Mathf.Abs(dir.x);
+        float absY = Mathf.Abs(dir.y);
+        float absZ = Mathf.Abs(dir.z);
+
+        bool isXPositive = dir.x > 0;
+        bool isYPositive = dir.y > 0;
+        bool isZPositive = dir.z > 0;
+
+        float u, v;
+
+        if (absX >= absY && absX >= absZ)
+        {
+            // Major axis is X
+            if (isXPositive)
+            {
+                // +X face
+                u = -dir.z / absX;
+                v = -dir.y / absX;
+            }
+            else
+            {
+                // -X face
+                u = dir.z / absX;
+                v = -dir.y / absX;
+            }
+        }
+        else if (absY >= absX && absY >= absZ)
+        {
+            // Major axis is Y
+            if (isYPositive)
+            {
+                // +Y face
+                u = dir.x / absY;
+                v = dir.z / absY;
+            }
+            else
+            {
+                // -Y face
+                u = dir.x / absY;
+                v = -dir.z / absY;
+            }
+        }
+        else
+        {
+            // Major axis is Z
+            if (isZPositive)
+            {
+                // +Z face
+                u = dir.x / absZ;
+                v = -dir.y / absZ;
+            }
+            else
+            {
+                // -Z face
+                u = -dir.x / absZ;
+                v = -dir.y / absZ;
+            }
+        }
+
+        return new Vector2(u, v) * 0.5f + Vector2.one * 0.5f;
     }
 
     List<Vector3> GenerateNormals(List<Vector3> vertices)
@@ -354,7 +490,7 @@ public class OceanFace
         return a * 8 + b * 4 + c * 2 + d * 1;
     }
 
-    int CastToInt(bool boolean)
+    int BoolToInt(bool boolean)
     {
         return boolean ? 1 : 0;
     }

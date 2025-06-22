@@ -31,6 +31,9 @@ public class TerrainFace
     {
         vertices = new Vector3[powResolution];
         int[] triangles = new int[(resolution - 1) * (resolution - 1) * 6];
+        //uv stores height and color data
+        //u-unscaled height
+        //v-color
         Vector2[] uv = new Vector2[powResolution];
         BellowZeroVertices = new OceanVertData[powResolution];
         int triIndex = 0;
@@ -97,12 +100,22 @@ public class TerrainFace
                 uv[i].x = colorGenerator.BiomePercentFromPoint(pointOnUnitSphere);
             }
         }
+        Mesh.uv = uv;
     }
 
     public Vector3 GetUnitSpherePointFromXY(float x, float y)
     {
         Vector2 percent = new Vector2(x, y) / (resolution - 1);
         Vector3 pointOnUnitCube = LocalUp + (percent.x - .5f) * 2 * AxisA + (percent.y - .5f) * 2 * AxisB;
-        return pointOnUnitCube.normalized;
+        Vector3 p = pointOnUnitCube;
+        float x2 = p.x * p.x;
+        float y2 = p.y * p.y;
+        float z2 = p.z * p.z;
+
+        float nx = p.x * Mathf.Sqrt(1f - (y2 + z2) * 0.5f + (y2 * z2) / 3f);
+        float ny = p.y * Mathf.Sqrt(1f - (z2 + x2) * 0.5f + (z2 * x2) / 3f);
+        float nz = p.z * Mathf.Sqrt(1f - (x2 + y2) * 0.5f + (x2 * y2) / 3f);
+
+        return new Vector3(nx,ny, nz).normalized;
     }
 }
