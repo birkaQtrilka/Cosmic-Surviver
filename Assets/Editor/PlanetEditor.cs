@@ -31,6 +31,7 @@ public class PlanetEditor : Editor
             planet.shapeSettings.SetActiveAllNoises(false);
             planet.colorSettings.MaximizeAllTints(true);
             planet.GeneratePlanet();
+            planet.DisableOceanMeshes();
 
         }
         if (GUILayout.Button("Hide Biomes"))
@@ -38,6 +39,7 @@ public class PlanetEditor : Editor
             planet.shapeSettings.SetActiveAllNoises(true);
             planet.colorSettings.MaximizeAllTints(false);
             planet.GeneratePlanet();
+            planet.EnableOceanMeshes();
 
         }
 

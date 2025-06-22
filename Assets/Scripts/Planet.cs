@@ -55,10 +55,7 @@ public class Planet : MonoBehaviour
             player = Camera.main.transform;
         size = transform.localScale.x;
     }
-    //private void OnDrawGizmos()
-    //{
-    //    Gizmos.DrawSphere(transform.position, shapeSettings.planetRadius);
-    //}
+    
     private void Start()
     {
         GeneratePlanet();
@@ -113,6 +110,19 @@ public class Planet : MonoBehaviour
             oMeshFilters[i].gameObject.SetActive(renderFace);
         }
     
+    }
+
+    public void DisableOceanMeshes()
+    {
+        for (int i = 0; i < 6; i++)
+            oMeshFilters[i].gameObject.SetActive(false);
+    }
+
+    public void EnableOceanMeshes()
+    {
+        for (int i = 0; i < 6; i++)
+            oMeshFilters[i].gameObject.SetActive(true);
+
     }
 
     void GenerateMesh()

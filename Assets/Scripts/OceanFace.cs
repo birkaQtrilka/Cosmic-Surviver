@@ -259,17 +259,7 @@ public class OceanFace
             if (oceanVerts[i].isOcean)
             {
                 Vector3 dir = terrainFace.GetUnitSpherePointFromXY(x, y);
-
                 Vector2 uv = GetUV(dir);
-
-                //if (uv.x < 0.05 || uv.x > 0.95)
-                //    uvs.Add(Vector2.zero);
-                //else
-                //if (uv.x > 0.95) // tweak threshold as needed
-                //{
-                //    uvs.Add(Vector2.zero);
-                //}
-                //else
                 uvs.Add(uv);
             }
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
@@ -342,9 +332,12 @@ public class OceanFace
 
         float minU = Mathf.Min(uv0.x, Mathf.Min(uv1.x, uv2.x));
         float maxU = Mathf.Max(uv0.x, Mathf.Max(uv1.x, uv2.x));
+        //for future experimenting
+        //float minV = Mathf.Min(uv0.y, Mathf.Min(uv1.y, uv2.y));
+        //float maxV = Mathf.Max(uv0.y, Mathf.Max(uv1.y, uv2.y));
 
         // If the triangle spans the 0/1 seam
-        if (maxU - minU > 0.5f)
+        if (maxU - minU > 0.5f /*|| maxV - minV > .5f*/)
         {
             // Fix wrap by duplicating vertices with corrected UVs
             v1 = FixWrappedUV(v1, uvs, vertices);
@@ -361,11 +354,14 @@ public class OceanFace
     {
         Vector3 v = vertices[index];
         Vector2 uv = uvs[index];
-
-        if (uv.x < 0.5f)
+        bool xWrap = uv.x < 0.5f;
+        //bool yWrap = uv.y < 0.5f;
+        if (xWrap /*|| yWrap*/)
         {
             // Need to shift U up to unwrap the seam
-            uv.x += 1f;
+            if(xWrap) uv.x += 1f;
+            //if(yWrap) uv.y += 1f;
+
             vertices.Add(v);
             uvs.Add(uv);
             return vertices.Count - 1; // return new index
@@ -382,7 +378,7 @@ public class OceanFace
         float v = 0.5f - Mathf.Asin(dir.y) / Mathf.PI;
         return new Vector2(u, v);
     }
-
+    //for future experimenting
     Vector2 GetUV2(Vector3 dir)
     {
         float absX = Mathf.Abs(dir.x);

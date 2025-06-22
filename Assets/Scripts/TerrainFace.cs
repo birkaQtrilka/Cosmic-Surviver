@@ -32,8 +32,8 @@ public class TerrainFace
         vertices = new Vector3[powResolution];
         int[] triangles = new int[(resolution - 1) * (resolution - 1) * 6];
         //uv stores height and color data
-        //u-unscaled height
-        //v-color
+        //u-color
+        //v-unscaled height
         Vector2[] uv = new Vector2[powResolution];
         BellowZeroVertices = new OceanVertData[powResolution];
         int triIndex = 0;
