@@ -20,7 +20,7 @@ MonoBehaviour:
       gradient:
         serializedVersion: 2
         key0: {r: 0.172549, g: 0.22959574, b: 0.65882355, a: 1}
-        key1: {r: 1, g: 0, b: 0, a: 1}
+        key1: {r: 0, g: 1, b: 0.19166303, a: 1}
         key2: {r: 0, g: 0, b: 0, a: 0}
         key3: {r: 0, g: 0, b: 0, a: 0}
         key4: {r: 0, g: 0, b: 0, a: 0}
@@ -128,6 +128,7 @@ MonoBehaviour:
         persistence: 0.46
         centre: {x: -0.32, y: 0.46, z: 0}
         minValue: 0.01
+        density: 0
       rigidNoiseSettings:
         strength: 1
         numLayers: 1
@@ -136,6 +137,7 @@ MonoBehaviour:
         persistence: 0.5
         centre: {x: 0, y: 0, z: 0}
         minValue: 0
+        density: 0
         weightMultiplier: 0.8
     noiseOffset: 0.12
     noiseStrength: 0.13

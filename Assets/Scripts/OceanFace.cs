@@ -1,10 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.SocialPlatforms;
-using static UnityEditor.Searcher.SearcherWindow.Alignment;
-
 [Serializable]
 public class OceanFace
 {
