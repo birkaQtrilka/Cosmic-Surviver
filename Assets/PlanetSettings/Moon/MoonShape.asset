@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67f11cc6a205492459cc0a94b730081b, type: 3}
   m_Name: MoonShape
   m_EditorClassIdentifier: 
-  planetRadius: 12.16
+  planetRadius: 6
   noiseLayers:
   - enabled: 1
     useFirstLayerAsMask: 0
@@ -26,6 +26,7 @@ MonoBehaviour:
         persistence: 0.01
         centre: {x: 0, y: 0, z: 0}
         minValue: 0.5
+        density: 0
       rigidNoiseSettings:
         strength: 1
         numLayers: 1
@@ -34,6 +35,7 @@ MonoBehaviour:
         persistence: 0.5
         centre: {x: 0, y: 0, z: 0}
         minValue: 0
+        density: 0
         weightMultiplier: 0.8
   - enabled: 1
     useFirstLayerAsMask: 0
@@ -47,6 +49,7 @@ MonoBehaviour:
         persistence: 0.003
         centre: {x: 1.74, y: -0.15, z: -0.55}
         minValue: 0.18
+        density: 0
       rigidNoiseSettings:
         strength: 1
         numLayers: 1
@@ -55,6 +58,7 @@ MonoBehaviour:
         persistence: 0.5
         centre: {x: 0, y: 0, z: 0}
         minValue: 0
+        density: 0
         weightMultiplier: 0.8
   - enabled: 0
     useFirstLayerAsMask: 0
@@ -68,6 +72,7 @@ MonoBehaviour:
         persistence: 0.003
         centre: {x: 1.74, y: -3.73, z: -0.55}
         minValue: 0.44
+        density: 0
       rigidNoiseSettings:
         strength: 1
         numLayers: 1
@@ -76,4 +81,5 @@ MonoBehaviour:
         persistence: 0.5
         centre: {x: 0, y: 0, z: 0}
         minValue: 0
+        density: 0
         weightMultiplier: 0.8
