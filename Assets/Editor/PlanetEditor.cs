@@ -24,11 +24,6 @@ public class PlanetEditor : Editor
         if (GUILayout.Button("Generate Planet"))
         {
             planet.GeneratePlanet();
-            planet.GenerateOcean();
-            if (planet.autoSaveTexture)
-            {
-                planet.SaveColorTexture();
-            }
         }
         
         if (GUILayout.Button("Show Biomes"))
@@ -42,7 +37,7 @@ public class PlanetEditor : Editor
             planet.colorSettings.MaximizeAllTints(true);
             planet.colorSettings.cleared = false;
             planet.GeneratePlanet();
-            planet.DisableOceanMeshes();
+            planet.SetActiveOceanMesh(false);
 
             EditorUtility.SetDirty(planet.colorSettings);
 
@@ -54,7 +49,7 @@ public class PlanetEditor : Editor
             planet.colorSettings.RestoreTintState();
             planet.colorSettings.cleared = true;
             planet.GeneratePlanet();
-            planet.EnableOceanMeshes();
+            planet.SetActiveOceanMesh(true);
 
             EditorUtility.SetDirty(planet.colorSettings);
         }
@@ -62,8 +57,14 @@ public class PlanetEditor : Editor
         {
             planet.SaveColorTexture();
         }
-
-
+        if (GUILayout.Button("Toggle Planet Mesh"))
+        {
+            planet.SetActivePlanetMesh(!planet.IsActivePlanetMesh);
+        }
+        if (GUILayout.Button("Toggle Ocean Mesh"))
+        {
+            planet.SetActiveOceanMesh(!planet.IsActiveOceanMesh);
+        }
         DrawSettingsEditor(planet.shapeSettings, planet.OnShapeSettingsUpdate, ref planet.shapeSettingsFoldout, ref shapeEditor);
         DrawSettingsEditor(planet.colorSettings, planet.OnColourSettingsUpdated,ref planet.colourSettingsFoldout, ref colourEditor);
     }

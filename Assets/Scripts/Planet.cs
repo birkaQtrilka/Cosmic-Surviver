@@ -37,6 +37,16 @@ public class Planet : MonoBehaviour
     OceanFace[] oceanFaces;
     Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
 
+    public bool IsActiveOceanMesh
+    {
+        get => oMeshFilters != null && oMeshFilters.Length > 0 && oMeshFilters[0] != null && oMeshFilters[0].gameObject.activeSelf;
+    }
+
+    public bool IsActivePlanetMesh
+    {
+        get => meshFilters != null && meshFilters.Length > 0 && meshFilters[0] != null && meshFilters[0].gameObject.activeSelf;
+    }
+
     void OnValidate()
     {
         if(player==null)
@@ -109,17 +119,18 @@ public class Planet : MonoBehaviour
 
     }
 
-    public void DisableOceanMeshes()
+    public void SetActiveOceanMesh(bool active)
     {
+        if (oMeshFilters == null || oMeshFilters.Length == 0 || oMeshFilters[0] == null) return;
         for (int i = 0; i < 6; i++)
-            oMeshFilters[i].gameObject.SetActive(false);
+            oMeshFilters[i].gameObject.SetActive(active);
     }
 
-    public void EnableOceanMeshes()
+    public void SetActivePlanetMesh(bool active)
     {
+        if (meshFilters == null || meshFilters.Length == 0 || meshFilters[0] == null) return;
         for (int i = 0; i < 6; i++)
-            oMeshFilters[i].gameObject.SetActive(true);
-
+            meshFilters[i].gameObject.SetActive(active);
     }
 
     void GenerateMesh()
@@ -134,15 +145,9 @@ public class Planet : MonoBehaviour
         }
 
         colorGenerator.UpdateElevation(shapeGenerator.elevationMinMax);
-        transform.position = oldPos;
-    }
 
-    public void GenerateOcean()
-    {
         if (!HasOceanMesh) return;
 
-        var oldPos = transform.position;
-        transform.position = Vector3.zero;
         for (int i = 0; i < 6; i++)
             if (oMeshFilters[i].gameObject.activeSelf)
             {
@@ -165,10 +170,14 @@ public class Planet : MonoBehaviour
 
     public void GeneratePlanet()
     {
-        
         Initialize();
         GenerateMesh();
         GenerateColours();
+
+        if (autoSaveTexture)
+        {
+            SaveColorTexture();
+        }
     }
     
     public void OnShapeSettingsUpdate()
