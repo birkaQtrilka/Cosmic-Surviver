@@ -321,13 +321,9 @@ public class OceanFace
     
     void FixTriangle(int t1, int t2, int t3, int v1, int v2, int v3, List<Vector2> uvs, List<Vector3> vertices, List<int> triangles)
     {
-        Vector2 uv0 = uvs[v1];
-        Vector2 uv1 = uvs[v2];
-        Vector2 uv2 = uvs[v3];
-
-        float min01 = Mathf.Min(uv0.x, uv1.x);
-        float max01 = Mathf.Max(uv0.x, uv1.x);
-
+        Vector2 uv1 = uvs[v1];
+        Vector2 uv2 = uvs[v2];
+        Vector2 uv3 = uvs[v3];
 
         //float min12 = Mathf.Min(uv1.x, uv2.x);
         //float max12 = Mathf.Max(uv1.x, uv2.x);
@@ -335,32 +331,33 @@ public class OceanFace
         //float min20 = Mathf.Min(uv2.x, uv0.x);
         //float max20 = Mathf.Max(uv2.x, uv0.x);
 
-        if(uv0.x - uv1.x > .5f)
-        {
-            vertices.Add(vertices[v1]);
-            uvs.Add(new Vector2(uv0.x + 1, uv0.y));
-            triangles[t1] = vertices.Count - 1;
-        }
-        if (uv1.x - uv0.x > .5f)
-        {
-            vertices.Add(vertices[v2]);
-            uvs.Add(new Vector2(uv1.x + 1, uv1.y));
-            triangles[t2] = vertices.Count - 1;
-        }
+        //if(uv1.x - uv2.x > .5f)
+        //{
+        //    vertices.Add(vertices[v1]);
+        //    uvs.Add(new Vector2(0, 1));
+        //    triangles[t1] = vertices.Count - 1;
+        //}
+        //if (uv2.x - uv1.x > .5f)
+        //{
+        //    vertices.Add(vertices[v2]);
+        //    uvs.Add(new Vector2(0, 1));
+        //    triangles[t2] = vertices.Count - 1;
+        //}
 
 
-        if (uv0.x - uv1.x > .5f)
-        {
-            vertices.Add(vertices[v1]);
-            uvs.Add(new Vector2(uv0.x + 1, uv0.y));
-            triangles[t1] = vertices.Count - 1;
-        }
-        if (uv1.x - uv0.x > .5f)
-        {
-            vertices.Add(vertices[v2]);
-            uvs.Add(new Vector2(uv1.x + 1, uv1.y));
-            triangles[t2] = vertices.Count - 1;
-        }
+        //if (uv2.x - uv3.x > .5f)
+        //{
+        //    vertices.Add(vertices[v2]);
+            
+        //    uvs.Add(new Vector2(0, 1));
+        //    triangles[t2] = vertices.Count - 1;
+        //}
+        //if (uv3.x - uv2.x > .5f)
+        //{
+        //    vertices.Add(vertices[v3]);
+        //    uvs.Add(new Vector2(0, 1));
+        //    triangles[t3] = vertices.Count - 1;
+        //}
         //if (max12 - min12 > .5f)
         //{
         //    uvs[v2] = new Vector2(0, 0);
