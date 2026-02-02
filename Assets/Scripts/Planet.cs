@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using Unity.Collections;
 using UnityEngine;
 [SelectionBase]
 public class Planet : MonoBehaviour
@@ -20,6 +17,7 @@ public class Planet : MonoBehaviour
     public ShapeSettings shapeSettings;
     public ColorSettings colorSettings;
     public bool HasOceanMesh = true;
+    public bool autoSaveTexture = true;
 
     [HideInInspector]
     public bool shapeSettingsFoldout;

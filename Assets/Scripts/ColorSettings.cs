@@ -1,6 +1,12 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+
+[System.Serializable]
+public struct BiomeTintSnapshot
+{
+    public float[] tintPercent;
+}
+
+
 [CreateAssetMenu()]
 public class ColorSettings : ScriptableObject
 {
@@ -9,6 +15,9 @@ public class ColorSettings : ScriptableObject
     public BiomeColorSettings biomeColorSettings;
     public Gradient oceanColor;
 
+    public BiomeTintSnapshot cachedTints;
+    [HideInInspector] 
+    public bool cleared;
     [System.Serializable]
     public class BiomeColorSettings
     {
@@ -16,7 +25,7 @@ public class ColorSettings : ScriptableObject
         public NoiseSettings noise;
         public float noiseOffset;
         public float noiseStrength;
-        [Range(0,1)]
+        [Range(0, 1)]
         public float blendAmount;
         [System.Serializable]
         public class Biome
@@ -24,9 +33,9 @@ public class ColorSettings : ScriptableObject
             public string name;
             public Gradient gradient;
             public Color tint;
-            [Range(0,1)]
+            [Range(0, 1)]
             public float startHeight;
-            [Range(0,1)]
+            [Range(0, 1)]
             public float tintPercent;
         }
     }
@@ -38,4 +47,29 @@ public class ColorSettings : ScriptableObject
         }
     }
 
+    public void CacheTintState()
+    {
+        cachedTints.tintPercent = new float[biomeColorSettings.biomes.Length];
+        for (int i = 0; i < biomeColorSettings.biomes.Length; i++)
+        {
+            cachedTints.tintPercent[i] = biomeColorSettings.biomes[i].tintPercent;
+        }
+    }
+
+    public void RestoreTintState()
+    {
+        if (cachedTints.tintPercent == null || biomeColorSettings == null)
+        {
+            Debug.LogWarning("No cached tints to restore.");
+            return;
+        }
+        if(cachedTints.tintPercent.Length != biomeColorSettings.biomes.Length)
+        {
+            cachedTints.tintPercent = new float[biomeColorSettings.biomes.Length];
+        }
+        for (int i = 0; i < biomeColorSettings.biomes.Length; i++)
+        {
+            biomeColorSettings.biomes[i].tintPercent = cachedTints.tintPercent[i];
+        }
+    }
 }

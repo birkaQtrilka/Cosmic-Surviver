@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 
+
 [CustomEditor(typeof(Planet))]
 public class PlanetEditor : Editor
 {
@@ -24,23 +25,38 @@ public class PlanetEditor : Editor
         {
             planet.GeneratePlanet();
             planet.GenerateOcean();
+            if (planet.autoSaveTexture)
+            {
+                planet.SaveColorTexture();
+            }
         }
         
         if (GUILayout.Button("Show Biomes"))
         {
+            Undo.RecordObject(planet.colorSettings, "Show Biomes");
             planet.shapeSettings.SetActiveAllNoises(false);
+            if(planet.colorSettings.cleared)
+            {
+                planet.colorSettings.CacheTintState();
+            }
             planet.colorSettings.MaximizeAllTints(true);
+            planet.colorSettings.cleared = false;
             planet.GeneratePlanet();
             planet.DisableOceanMeshes();
 
+            EditorUtility.SetDirty(planet.colorSettings);
+
         }
-        if (GUILayout.Button("Hide Biomes"))
+        if (GUILayout.Button("Hide Biomes") && !planet.colorSettings.cleared)
         {
+            Undo.RecordObject(planet.colorSettings, "Show Biomes");
             planet.shapeSettings.SetActiveAllNoises(true);
-            planet.colorSettings.MaximizeAllTints(false);
+            planet.colorSettings.RestoreTintState();
+            planet.colorSettings.cleared = true;
             planet.GeneratePlanet();
             planet.EnableOceanMeshes();
 
+            EditorUtility.SetDirty(planet.colorSettings);
         }
         if (GUILayout.Button("Save Color Texture"))
         {
