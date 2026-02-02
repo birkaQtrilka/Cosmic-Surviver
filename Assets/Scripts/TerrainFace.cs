@@ -3,10 +3,9 @@ using UnityEngine;
 public class TerrainFace
 {
     public Mesh Mesh { get; }
-    public Vector3 LocalUp { get; }
-    //axes perpendicular to localUp
-    public Vector3 AxisA { get; }
-    public Vector3 AxisB { get; }
+    public Vector3 LocalUp { get; }// z direction of face, or front of face
+    public Vector3 AxisA { get; } // x direction of face
+    public Vector3 AxisB { get; } // y direction of face
     public ShapeGenerator ShapeGenerator { get; }
     public OceanVertData[] BellowZeroVertices { get; private set; }
 
@@ -105,9 +104,7 @@ public class TerrainFace
 
     public Vector3 GetUnitSpherePointFromXY(float x, float y)
     {
-        Vector2 percent = new Vector2(x, y) / (resolution - 1);
-        Vector3 pointOnUnitCube = LocalUp + (percent.x - .5f) * 2 * AxisA + (percent.y - .5f) * 2 * AxisB;
-        Vector3 p = pointOnUnitCube;
+        Vector3 p = GetPointOnUnitCube(x, y);
         float x2 = p.x * p.x;
         float y2 = p.y * p.y;
         float z2 = p.z * p.z;
@@ -117,5 +114,11 @@ public class TerrainFace
         float nz = p.z * Mathf.Sqrt(1f - (x2 + y2) * 0.5f + (x2 * y2) / 3f);
 
         return new Vector3(nx,ny, nz).normalized;
+    }
+
+    public Vector3 GetPointOnUnitCube(float x, float y)
+    {
+        Vector2 percent = new Vector2(x, y) / (resolution - 1);
+        return LocalUp + (percent.x - .5f) * 2 * AxisA + (percent.y - .5f) * 2 * AxisB;
     }
 }

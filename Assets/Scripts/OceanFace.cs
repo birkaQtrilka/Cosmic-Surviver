@@ -255,7 +255,7 @@ public class OceanFace
             if (oceanVerts[i].isOcean)
             {
                 Vector3 dir = terrainFace.GetUnitSpherePointFromXY(x, y);
-                Vector2 uv = GetUV(dir);
+                Vector2 uv = GetUV(dir, terrainFace.LocalUp);
                 uvs.Add(uv);
             }
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
@@ -290,7 +290,7 @@ public class OceanFace
                 Vector2 edgePoint = GetLerpedEdgePoint(cellVert, gridPos);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
 
-                Vector2 uv = GetUV(pointOnUnitSphere);
+                Vector2 uv = GetUV(pointOnUnitSphere, terrainFace.LocalUp);
                 Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
                 
                 uvQueue.Enqueue(uv);
@@ -304,119 +304,12 @@ public class OceanFace
         {
             uvs.Add(uvQueue.Dequeue());
         }
-        // goes through every triangle and checks if it spans the 0/1 seam in uv space
-        for (int i = 0; i < triangles.Count; i += 3)
-        {
-            FixTriangle
-            (
-                i, i + 1, i + 2,
-                triangles[i], triangles[i + 1], triangles[i + 2],
-                uvs, vertices, triangles
-            );
-        }
 
         return (triangles, uvs);
     }
 
-    
-    void FixTriangle(int t1, int t2, int t3, int v1, int v2, int v3, List<Vector2> uvs, List<Vector3> vertices, List<int> triangles)
-    {
-        Vector2 uv1 = uvs[v1];
-        Vector2 uv2 = uvs[v2];
-        Vector2 uv3 = uvs[v3];
-
-        //float min12 = Mathf.Min(uv1.x, uv2.x);
-        //float max12 = Mathf.Max(uv1.x, uv2.x);
-
-        //float min20 = Mathf.Min(uv2.x, uv0.x);
-        //float max20 = Mathf.Max(uv2.x, uv0.x);
-
-        //if(uv1.x - uv2.x > .5f)
-        //{
-        //    vertices.Add(vertices[v1]);
-        //    uvs.Add(new Vector2(0, 1));
-        //    triangles[t1] = vertices.Count - 1;
-        //}
-        //if (uv2.x - uv1.x > .5f)
-        //{
-        //    vertices.Add(vertices[v2]);
-        //    uvs.Add(new Vector2(0, 1));
-        //    triangles[t2] = vertices.Count - 1;
-        //}
-
-
-        //if (uv2.x - uv3.x > .5f)
-        //{
-        //    vertices.Add(vertices[v2]);
-            
-        //    uvs.Add(new Vector2(0, 1));
-        //    triangles[t2] = vertices.Count - 1;
-        //}
-        //if (uv3.x - uv2.x > .5f)
-        //{
-        //    vertices.Add(vertices[v3]);
-        //    uvs.Add(new Vector2(0, 1));
-        //    triangles[t3] = vertices.Count - 1;
-        //}
-        //if (max12 - min12 > .5f)
-        //{
-        //    uvs[v2] = new Vector2(0, 0);
-        //    //uvs[v3] = new Vector2(0, 0);
-        //}
-        //if (max20 - min20 > .5f)
-        //{
-        //    uvs[v3] = new Vector2(0, 0);
-        //    //uvs[v1] = new Vector2(0, 0);
-        //}
-        // If the triangle spans the 0/1 seam
-        //if (maxU - minU > 0.5f)
-        //{
-        //    uvs[v1] = new Vector2(0, 0);
-        //    uvs[v2] = new Vector2(0, 0);
-        //    uvs[v3] = new Vector2(0, 0);
-
-        //    //// Fix wrap by duplicating vertices with corrected UVs
-        //    //v1 = FixWrappedUV(v1, uvs, vertices);
-        //    //v2 = FixWrappedUV(v2, uvs, vertices);
-        //    //v3 = FixWrappedUV(v3, uvs, vertices);
-        //}
-
-        //triangles[t1] = v1;
-        //triangles[t2] = v2;
-        //triangles[t3] = v3;
-    }
-
-    int FixWrappedUV(int index, List<Vector2> uvs, List<Vector3> vertices)
-    {
-        Vector3 v = vertices[index];
-        Vector2 uv = uvs[index];
-        bool xWrap = uv.x < 0.5f;
-        bool yWrap = uv.y < 0.5f;
-        if (xWrap || yWrap)
-        {
-            // Need to shift U up to unwrap the seam
-            if(xWrap) uv.x += 1f;
-            if(yWrap) uv.y += 1f;
-
-            vertices.Add(v);
-            uvs.Add(uv);
-            return vertices.Count - 1; // return new index
-        }
-        else
-        {
-            return index; // no change
-        }
-    }
-
-    // polar coordinates uv mapping for sphere
-    Vector2 GetUV2(Vector3 dir)
-    {
-        float u = 0.5f + Mathf.Atan2(dir.z, dir.x) / (2 * Mathf.PI);
-        float v = 0.5f - Mathf.Asin(dir.y) / Mathf.PI;
-        return new Vector2(u, v);
-    }
     //for future experimenting
-    Vector2 GetUV(Vector3 dir)
+    Vector2 GetUV(Vector3 dir, Vector3 face)
     {
         float absX = Mathf.Abs(dir.x);
         float absY = Mathf.Abs(dir.y);
@@ -428,7 +321,7 @@ public class OceanFace
 
         float u, v;
 
-        if (absX >= absY && absX >= absZ)
+        if (face.x != 0)
         {
             // Major axis is X
             if (isXPositive)
@@ -444,7 +337,7 @@ public class OceanFace
                 v = -dir.y / absX;
             }
         }
-        else if (absY >= absX && absY >= absZ)
+        else if (face.y != 0)
         {
             // Major axis is Y
             if (isYPositive)
