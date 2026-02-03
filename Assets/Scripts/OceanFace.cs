@@ -102,10 +102,10 @@ public class OceanFace
         _mesh.vertices = vertices.ToArray();
         _mesh.triangles = triangles.ToArray();
         _mesh.uv = uvs.ToArray();
-        //_mesh.normals = GenerateNormals(vertices).ToArray();
         _mesh.RecalculateNormals();
     }
-
+    // look if vert is at the edge, then connect to other face
+    // for me to connect, I first need to remove triange connections from one of the faces
     List<Vector3> GenerateVertices()
     {
 
@@ -244,7 +244,7 @@ public class OceanFace
         CellPoint[][] cellLookup = InitLookUpTable();
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
         List<int> triangles = new(terrainFace.Mesh.triangles.Length);
-        List<Vector2> uvs = new();
+        List<Vector2> uvs = new(powResolution);
         //adds to current grid position (x, y) to get desirable corner of cell
         Queue<Vector2> uvQueue = new();
 
@@ -308,7 +308,7 @@ public class OceanFace
         return (triangles, uvs);
     }
 
-    //for future experimenting
+    // get position of vert, based on that set a uv blend
     Vector2 GetUV(Vector3 dir, Vector3 face)
     {
         float absX = Mathf.Abs(dir.x);
@@ -373,16 +373,6 @@ public class OceanFace
         return new Vector2(u, v) * 0.5f + Vector2.one * 0.5f;
     }
 
-    List<Vector3> GenerateNormals(List<Vector3> vertices)
-    {
-        List<Vector3> normals = new(vertices.Count);
-        foreach (Vector3 vert in vertices)
-        {
-            normals.Add(vert.normalized);
-        }
-
-        return normals;
-    }
 
     Vector2 GetLerpedEdgePoint(CellPoint cellPoint, Vector2 gridPos)
     {

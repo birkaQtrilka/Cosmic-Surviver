@@ -12,9 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1e30693783f4cb48abfb5466963dd05, type: 3}
   m_Name: Color
   m_EditorClassIdentifier: 
-  planetMat: {fileID: 2100000, guid: 150479bfa8d28f7459b8fd3af7ab5f9c, type: 2}
-  oceanMat: {fileID: -876546973899608171, guid: d83d84a889e997d469d61f6de93f4772,
-    type: 3}
+  planetMat: {fileID: 2100000, guid: 096689609d874e2458760174c57aa725, type: 2}
+  oceanMat: {fileID: 2100000, guid: 096689609d874e2458760174c57aa725, type: 2}
   biomeColorSettings:
     biomes:
     - name: arctic
@@ -50,7 +49,7 @@ MonoBehaviour:
         m_NumAlphaKeys: 2
       tint: {r: 0.1275827, g: 0.22766255, b: 0.6830188, a: 0}
       startHeight: 0.14
-      tintPercent: 0
+      tintPercent: 1
     - name: plains
       gradient:
         serializedVersion: 2
@@ -84,7 +83,7 @@ MonoBehaviour:
         m_NumAlphaKeys: 2
       tint: {r: 0.16155967, g: 0.68235296, b: 0.12941177, a: 0}
       startHeight: 0.195
-      tintPercent: 0
+      tintPercent: 1
     noise:
       filterType: 0
       simpleNoiseSettings:
@@ -143,4 +142,4 @@ MonoBehaviour:
     tintPercent:
     - 0
     - 0
-  cleared: 1
+  cleared: 0
