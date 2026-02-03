@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using static UnityEditor.Searcher.SearcherWindow.Alignment;
 [Serializable]
 public class OceanFace
 {
     //the algorithm goes cell by cell, this data structure is to represent 2 corners of a cell
     //0-top left corner, 1-top right, 2-bottom left, 3-bottom right
-    readonly struct CornerIndexes
+    public readonly struct CornerIndexes
     {
         public readonly int Corner1Offset;
         public readonly int Corner2Offset;
@@ -18,7 +20,7 @@ public class OceanFace
         }
     }
 
-    readonly struct CellPoint
+    public readonly struct CellPoint
     {
         //additional position means another point between the already existing ocean vertices
         public readonly bool IsAdditional;
@@ -26,7 +28,7 @@ public class OceanFace
 
         public readonly int IndexOffset;
         //the numbers mean between what points of the cell is the additional position.
-        //0-top left corner, 1-top right, 2-bottom left, 3-bottom right
+        //0-top left corner, 1-top right, 2-bottom right, 3-bottom left
         public readonly static CornerIndexes north = new(0, 1);
         public readonly static CornerIndexes east = new(1, 2);
         public readonly static CornerIndexes south = new(2, 3);
@@ -130,11 +132,11 @@ public class OceanFace
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
-
+            vertices.Add(oceanVerts[i].WorldPos);
+            oceanVerts[i].VerticesArrayIndex = vertices.Count - 1;
             if (oceanVerts[i].isOcean)
             {
-                vertices.Add(oceanVerts[i].WorldPos);
-                oceanVerts[i].VerticesArrayIndex = vertices.Count - 1;
+                
                 //how far it is from ocean level
                 continue;
             }
@@ -145,10 +147,13 @@ public class OceanFace
                 int neighborIndex = i + offset;
                 int neighborY = neighborIndex / _resolution;
                 int neighborX = neighborIndex - neighborY * _resolution;
-                // if the difference is bigger than one, they are on diffrent columns/rows 
-                if (neighborIndex >= 0 && neighborIndex < oceanVerts.Length &&
-                    Math.Abs(neighborX - x) <= 1 && Math.Abs(neighborY - y) <= 1 &&
-                    oceanVerts[neighborIndex].isOcean)
+                // if the difference is bigger than one, they are on diffrent columns / rows 
+                if (
+                    neighborIndex >= 0 
+                    && neighborIndex < oceanVerts.Length // within bounds
+                    && Math.Abs(neighborX - x) <= 1 
+                    && Math.Abs(neighborY - y) <= 1 
+                    && oceanVerts[neighborIndex].isOcean)
                 {
                     oceanVerts[i].isShore = true;// don't add them in the vertices list yet because we will create new vertices 
                     //that will be positioned according to the square marching algorithm
@@ -161,9 +166,72 @@ public class OceanFace
         return vertices;
     }
 
+    public void Debug()
+    {
+        Gizmos.color = Color.red;
+        if(terrainFace == null || terrainFace.BellowZeroVertices == null) return;
+        for (int i = 0; i < terrainFace.BellowZeroVertices.Length; i++)
+        {
+
+            if(terrainFace.BellowZeroVertices[i].isShore)
+                Gizmos.DrawSphere(terrainFace.BellowZeroVertices[i].WorldPos, .01f);
+        }
+    }
+    //(added triangles entry, added vertices entry, exited lookup loop)
+    public (int?, Vector3?, bool) Step(int i, int j, List<Vector3> vertices, CellPoint[][] cellLookup)
+    {
+        OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
+        
+
+        int y = i / _resolution;
+        int x = i - y * _resolution;
+        if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) return (null, null, false);//check only the shore or ocean verts for optimization
+
+        if (x == _resolution - 1 || y == _resolution - 1) return (null, null, false);// the edges don't form cells, so skip
+        Vector2 gridPos = new(x, y);
+
+        //to later retrieve the points of the line that the additional vertex will sit on
+        _corners[0] = oceanVerts[i];
+        _corners[1] = oceanVerts[i + right];
+        _corners[2] = oceanVerts[i + downRight];
+        _corners[3] = oceanVerts[i + down];
+
+        //checking the corners of cell to see what type of contour I need
+        int a = BoolToInt(_corners[0].isOcean);
+        int b = BoolToInt(_corners[1].isOcean);
+        int c = BoolToInt(_corners[2].isOcean);
+        int d = BoolToInt(_corners[3].isOcean);
+
+        int contourHash = GetContour(a, b, c, d);
+        int current_j = 0;
+        foreach (CellPoint cellVert in cellLookup[contourHash])
+        {
+            current_j++;
+            if (!cellVert.IsAdditional)
+            {
+                //see triangle connections in debug
+                if(current_j -1 == j)
+                    return (oceanVerts[i + cellVert.IndexOffset].VerticesArrayIndex, null, false);
+                continue;
+            }
+            if (current_j - 1 != j) continue;
+            Vector2 edgePoint = GetLerpedEdgePoint(cellVert, gridPos);
+            Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
+
+            Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
+            vertices.Add(vertex);
+
+            return (vertices.Count - 1, vertex, false);
+        }
+
+        return (null, null, true);
+    }
+
+
+
     //the 16 ways that a cell might look like mapped to how to order the verts in the triangles array
     //if it's a pole coordinate, that means it's a vert that should be created in between the existing vertices
-    CellPoint[][] InitLookUpTable()
+    public CellPoint[][] InitLookUpTable()
     {
         //relative to topleft corner of cell (origin)
         return new CellPoint[][]
@@ -244,20 +312,20 @@ public class OceanFace
         CellPoint[][] cellLookup = InitLookUpTable();
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
         List<int> triangles = new(terrainFace.Mesh.triangles.Length);
-        List<Vector2> uvs = new(powResolution);
+        //List<Vector2> uvs = new(powResolution);
         //adds to current grid position (x, y) to get desirable corner of cell
-        Queue<Vector2> uvQueue = new();
+        //Queue<Vector2> uvQueue = new();
 
         for (int i = 0; i < powResolution; i++)
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
-            if (oceanVerts[i].isOcean)
-            {
-                Vector3 dir = terrainFace.GetUnitSpherePointFromXY(x, y);
-                Vector2 uv = GetUV(dir, terrainFace.LocalUp);
-                uvs.Add(uv);
-            }
+            //if (oceanVerts[i].isOcean)
+            //{
+            //    Vector3 dir = terrainFace.GetUnitSpherePointFromXY(x, y);
+            //    Vector2 uv = GetUV(dir, terrainFace.LocalUp);
+            //    uvs.Add(uv);
+            //}
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
 
             if (x == _resolution - 1 || y == _resolution - 1) continue;// the edges don't form cells, so skip
@@ -276,10 +344,10 @@ public class OceanFace
             int d = BoolToInt(_corners[3].isOcean);
 
             int contourHash = GetContour(a, b, c, d);
-            int addedVertIndex = vertices.Count;
+            //int addedVertIndex = vertices.Count;
+            //if(contourHash != 15 && contourHash != 0) continue;// no triangles to be made
             foreach (CellPoint cellVert in cellLookup[contourHash])
             {
-                
                 if (!cellVert.IsAdditional)
                 {
                     //goes through the cells 
@@ -290,22 +358,22 @@ public class OceanFace
                 Vector2 edgePoint = GetLerpedEdgePoint(cellVert, gridPos);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
 
-                Vector2 uv = GetUV(pointOnUnitSphere, terrainFace.LocalUp);
+                //Vector2 uv = GetUV(pointOnUnitSphere, terrainFace.LocalUp);
                 Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
                 
-                uvQueue.Enqueue(uv);
+                //uvQueue.Enqueue(uv);
                 vertices.Add(vertex);
-                triangles.Add(addedVertIndex++);
+                triangles.Add(vertices.Count-1);
             }
             
         }
         //find out if uv line goes 
-        while (uvQueue.Count > 0)
-        {
-            uvs.Add(uvQueue.Dequeue());
-        }
+        //while (uvQueue.Count > 0)
+        //{
+        //    uvs.Add(uvQueue.Dequeue());
+        //}
 
-        return (triangles, uvs);
+        return (triangles, new List<Vector2>(powResolution));
     }
 
     // get position of vert, based on that set a uv blend

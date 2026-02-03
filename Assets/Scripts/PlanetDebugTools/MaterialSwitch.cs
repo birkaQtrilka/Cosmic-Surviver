@@ -6,6 +6,8 @@ public struct SwitchData
     public string name;
     public Material oceanMat;
     public Material planetMat;
+    public bool activeOceanMesh;
+    public bool activePlanetMesh;
 }
 
 [ExecuteInEditMode]
@@ -39,5 +41,7 @@ public class MaterialSwitch : MonoBehaviour
             Planet.colorSettings.oceanMat = data.oceanMat;
         }
         Planet.GeneratePlanet();
+        Planet.SetActiveOceanMesh(data.activeOceanMesh);
+        Planet.SetActivePlanetMesh(data.activePlanetMesh);
     }
 }
