@@ -105,6 +105,10 @@ public class OceanFace
                 Vector2 uv = GetUV(dir, terrainFace.LocalUp);
                 uvs.Add(uv);
             }
+            else
+            {
+                uvs.Add(Vector2.zero);//placeholder,
+            }
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
 
             if (x == _resolution - 1 || y == _resolution - 1) continue;// the edges don't form cells, so skip
