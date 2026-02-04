@@ -14,6 +14,7 @@ public struct SwitchData
 public class MaterialSwitch : MonoBehaviour
 {
     public SwitchData[] switches;
+    [SerializeField, HideInInspector] int lastSwitchIndex = -1;
 
     private Planet planet;
     public Planet Planet
@@ -25,6 +26,15 @@ public class MaterialSwitch : MonoBehaviour
                 planet = GetComponent<Planet>();
             }
             return planet;
+        }
+    }
+
+    public void ApplySwitch(int index)
+    {
+        if (index >= 0 && index < switches.Length)
+        {
+            ApplySwitch(switches[index]);
+            lastSwitchIndex = index;
         }
     }
 
@@ -43,5 +53,13 @@ public class MaterialSwitch : MonoBehaviour
         Planet.GeneratePlanet();
         Planet.SetActiveOceanMesh(data.activeOceanMesh);
         Planet.SetActivePlanetMesh(data.activePlanetMesh);
+    }
+
+    public void ApplyLastSwitch()
+    {
+        if (lastSwitchIndex >= 0 && lastSwitchIndex < switches.Length)
+        {
+            ApplySwitch(switches[lastSwitchIndex]);
+        }
     }
 }

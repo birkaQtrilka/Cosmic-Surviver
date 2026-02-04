@@ -49,9 +49,9 @@ public class MaterialSwitchEditor : Editor
             SerializedProperty planetMat = element.FindPropertyRelative("planetMat");
             SerializedProperty oceanMat = element.FindPropertyRelative("oceanMat");
             SerializedProperty name = element.FindPropertyRelative("name");
-            SerializedProperty planetShow = element.FindPropertyRelative("activeOceanMesh");
-            SerializedProperty oceanShow = element.FindPropertyRelative("activePlanetMesh");
-
+            SerializedProperty oceanShow = element.FindPropertyRelative("activeOceanMesh");
+            SerializedProperty planetShow = element.FindPropertyRelative("activePlanetMesh");
+            
             Rect nameRect = new Rect(
                 rect.x,
                 rect.y,
@@ -116,7 +116,7 @@ public class MaterialSwitchEditor : Editor
         SwitchData data = materialSwitch.switches[index];
 
         Undo.RecordObject(materialSwitch.Planet, "Apply Material Switch");
-        materialSwitch.ApplySwitch(data);
+        materialSwitch.ApplySwitch(index);
 
         EditorUtility.SetDirty(materialSwitch.Planet);
     }

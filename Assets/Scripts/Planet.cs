@@ -41,7 +41,7 @@ public class Planet : MonoBehaviour
 
     public bool IsActiveOceanMesh
     {
-        get => oMeshFilters != null && oMeshFilters.Length > 0 && oMeshFilters[0] != null && oMeshFilters[0].gameObject.activeSelf;
+        get => /*GetCombinedMesh().activeSelf || */(oMeshFilters != null && oMeshFilters.Length > 0 && oMeshFilters[0] != null && oMeshFilters[0].gameObject.activeSelf);
     }
 
     public bool IsActivePlanetMesh
@@ -57,8 +57,20 @@ public class Planet : MonoBehaviour
         colorGenerator.SaveTexture();
     }
     
+    GameObject GetCombinedMesh()
+    {
+        var found = transform.Find("Combined Ocean");
+        if (found)
+        {
+            return found.gameObject;
+        }
+        return null;
+    }
+
     void Initialize()
     {
+        DestroyImmediate(GetCombinedMesh());
+
         var oldPos = transform.position;
         transform.position = Vector3.zero;
 
@@ -123,6 +135,8 @@ public class Planet : MonoBehaviour
         if (oMeshFilters == null || oMeshFilters.Length == 0 || oMeshFilters[0] == null) return;
         for (int i = 0; i < 6; i++)
             oMeshFilters[i].gameObject.SetActive(active);
+        //GetCombinedMesh()?.SetActive(active);
+
     }
 
     public void SetActivePlanetMesh(bool active)
@@ -155,6 +169,8 @@ public class Planet : MonoBehaviour
 
             }
         transform.position = oldPos;
+
+        //MeshWelder.CombineAndWeldMeshes(oMeshFilters, transform);
     }
     void OnValidate()
     {

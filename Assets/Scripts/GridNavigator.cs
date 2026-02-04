@@ -159,4 +159,61 @@ public class GridNavigator
     {
         return index / Resolution;
     }
+
+    public static readonly (int face, int edge)[,] CubeFaceConnections =
+    {
+        // face 0
+        { (4,1), (3,0), (5,3), (2,0) },
+    
+        // face 1
+        { (4,3), (3,2), (5,1), (2,2) },
+    
+        // face 2
+        { (0,3), (5,2), (1,1), (4,2) },
+    
+        // face 3
+        { (0,1), (5,0), (1,3), (4,0) },
+    
+        // face 4
+        { (3,1), (0,0), (2,3), (1,0) },
+    
+        // face 5
+        { (3,3), (0,2), (2,1), (1,2) },
+    };
+
+    // neighbors of face 0 and what edges touch 
+    // current edge: (0) top,    is touching face: 4, touching edge: (1) right 
+    // current edge: (1) right,  is touching face: 3, touching edge: (0) top   
+    // current edge: (2) bottom, is touching face: 5, touching edge: (3) left  
+    // current edge: (3) left,   is touching face: 2, touching edge: (0) top   
+
+    // neighbors of face 1 is the mirror of face 1, but touches the same faces
+    // current edge: (0) top,    is touching face: 4, touching edge: (3) left   
+    // current edge: (1) right,  is touching face: 3, touching edge: (2) bottom 
+    // current edge: (2) bottom, is touching face: 5, touching edge: (1) right  [0 1 2 3 4 5 0 1 2 3 4 5]
+    // current edge: (3) left,   is touching face: 2, touching edge: (2) bottom [0 1 2 3 4 5 0 1 2 3 4 5]
+
+    // neighbors of face 2 and what edges touch 
+    // current edge: (0) top,    is touching face: 0, touching edge: (3) left 
+    // current edge: (1) right,  is touching face: 5, touching edge: (2) bottom   
+    // current edge: (2) bottom, is touching face: 1, touching edge: (1) right  
+    // current edge: (3) left,   is touching face: 4, touching edge: (2) bottom   
+
+    // neighbors of face 3 and what edges touch 
+    // current edge: (0) top,    is touching face: 0, touching edge: (1) right 
+    // current edge: (1) right,  is touching face: 5, touching edge: (0) top      
+    // current edge: (2) bottom, is touching face: 1, touching edge: (3) left   
+    // current edge: (3) left,   is touching face: 4, touching edge: (0) top     
+
+    // neighbors of face 4 and what edges touch 
+    // current edge: (0) top,    is touching face: 3, touching edge: (1) right 
+    // current edge: (1) right,  is touching face: 0, touching edge: (0) top   
+    // current edge: (2) bottom, is touching face: 2, touching edge: (3) left  
+    // current edge: (3) left,   is touching face: 1, touching edge: (0) top
+
+    // neighbors of face 5 and what edges touch 
+    // current edge: (0) top,    is touching face: 3, touching edge: (3) left   
+    // current edge: (1) right,  is touching face: 0, touching edge: (2) bottom 
+    // current edge: (2) bottom, is touching face: 2, touching edge: (1) right  
+    // current edge: (3) left,   is touching face: 1, touching edge: (2) bottom 
 }

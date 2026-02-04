@@ -3,16 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-[ExecuteInEditMode]
+[ExecuteInEditMode, RequireComponent(typeof(Planet))]
 public class OceanFaceDebug : MonoBehaviour
 {
     [SerializeField, Range(0,5)] int _faceIndex = 0;
-    
+    [SerializeField] bool _drawSides = false;
+    [SerializeField] float _shift = 0.01f;
+
     [SerializeField] bool _debug = false;
     [SerializeField] bool _initDebug;
     [SerializeField] bool _step;
     [SerializeField] bool _stepUntilVert;
     [SerializeField] bool _autoInitOnError;
+    [SerializeField] ReversedList<Color> faceColors;
 
     [Header("visualisation")]
     [SerializeField] int debugStep = 0;
@@ -20,6 +23,7 @@ public class OceanFaceDebug : MonoBehaviour
     [SerializeField, ReadOnly] ReversedList<int> triangles;
 
     Planet planet;
+    MaterialSwitch materialSwitch;
     readonly OceanVertData[] _corners = new OceanVertData[4];
 
     List<Vector3> vertices;
@@ -33,10 +37,12 @@ public class OceanFaceDebug : MonoBehaviour
     void Start()
     {
         planet = GetComponent<Planet>();
+        materialSwitch = GetComponent<MaterialSwitch>();
     }
 
     void OnValidate()
     {
+        if (planet == null) return;
         if (_initDebug)
         {
             _initDebug = false;
@@ -60,6 +66,8 @@ public class OceanFaceDebug : MonoBehaviour
 
     void OnDrawGizmos()
     {
+        if (planet == null) return;
+
         try
         {
             Frame();
@@ -72,8 +80,11 @@ public class OceanFaceDebug : MonoBehaviour
             if (_autoInitOnError)
             {
                 Debug.Log("Auto Initializing the planet");
-
-                planet.GeneratePlanet();
+                materialSwitch ??= GetComponent<MaterialSwitch>();
+                if (materialSwitch != null)
+                    materialSwitch.ApplyLastSwitch();
+                else
+                    planet.GeneratePlanet();
                 InitDebug();
             }
         }
@@ -95,6 +106,46 @@ public class OceanFaceDebug : MonoBehaviour
         DrawInvalidVertices();
         DrawTriangles();
         
+        if(_drawSides)
+        {
+            DrawSides();
+        }
+    }
+
+    void DrawSides()
+    {
+        var resolution = planet.resolution;
+        int i = 0;
+        foreach (var f in planet.TerrainFaces)
+        {
+            var verts = f.BellowZeroVertices;
+            var topLeft = verts[0].WorldPos;
+            var topRight = verts[resolution - 1].WorldPos;
+            var bottomLeft = verts[(resolution - 1)*resolution].WorldPos;
+            var bottomRight = verts[(resolution * resolution) - 1].WorldPos;
+
+            var center = (topLeft + topRight + bottomLeft + bottomRight) / 4;
+
+            topLeft = Vector3.Lerp(topLeft, center, _shift);
+            topRight = Vector3.Lerp(topRight, center, _shift);
+            bottomLeft = Vector3.Lerp(bottomLeft, center, _shift);
+            bottomRight = Vector3.Lerp(bottomRight, center, _shift);
+
+            Gizmos.color = faceColors[0];
+            Gizmos.DrawLine(topLeft, topRight);
+            Gizmos.color = faceColors[1];
+            Gizmos.DrawLine(topRight, bottomRight);
+            Gizmos.color = faceColors[2];
+            Gizmos.DrawLine(bottomRight, bottomLeft);
+            Gizmos.color = faceColors[3];
+            Gizmos.DrawLine(bottomLeft, topLeft);
+            if (i < faceColors.Count)
+            {
+                Gizmos.color = faceColors[i];
+                Gizmos.DrawSphere(center, 1f);
+            }
+            i++;
+        }
     }
 
     public void DoStep()

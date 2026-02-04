@@ -26,7 +26,7 @@ public class OceanFace
 
     }
 
-    public void ConstructMesh()
+    public Mesh ConstructMesh()
     {
         List<Vector3> vertices = GenerateVertices();
 
@@ -37,6 +37,7 @@ public class OceanFace
         _mesh.triangles = triangles.ToArray();
         _mesh.uv = uvs.ToArray();
         _mesh.RecalculateNormals();
+        return _mesh;
     }
 
     // look if vert is at the edge, then connect to other face

@@ -331,20 +331,6 @@
         {
             "m_OutputSlot": {
                 "m_Node": {
-                    "m_Id": "c28599c430a4480cb80c9976fb22e7f9"
-                },
-                "m_SlotId": 2
-            },
-            "m_InputSlot": {
-                "m_Node": {
-                    "m_Id": "611a95ade336443ba4ad8110905bc34f"
-                },
-                "m_SlotId": 0
-            }
-        },
-        {
-            "m_OutputSlot": {
-                "m_Node": {
                     "m_Id": "cf08110144974b838564e39dc006ac65"
                 },
                 "m_SlotId": 2
@@ -3441,9 +3427,9 @@
     "m_ShaderOutputName": "BaseColor",
     "m_StageCapability": 2,
     "m_Value": {
-        "x": 0.5,
-        "y": 0.5,
-        "z": 0.5
+        "x": 0.3335443437099457,
+        "y": 0.32776787877082827,
+        "z": 0.350943386554718
     },
     "m_DefaultValue": {
         "x": 0.0,
