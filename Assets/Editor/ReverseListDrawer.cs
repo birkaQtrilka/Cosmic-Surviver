@@ -6,7 +6,7 @@ using UnityEngine;
 public class ReversedListDrawer : PropertyDrawer
 {
     const float DragHandleWidth = 18f;
-    static readonly Dictionary<string, int> selectedIndexByProperty = new ();
+
     static readonly Dictionary<string, int> dragIndexByProperty = new();
     static readonly Dictionary<string, Rect[]> elementRectsByProperty = new();
 
@@ -19,14 +19,9 @@ public class ReversedListDrawer : PropertyDrawer
         if (!property.isExpanded) return height;
 
         height += EditorGUIUtility.standardVerticalSpacing;
+        height += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing; // Add Button
+        height += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing; // Size Field
 
-        // Height for "Add" Button
-        height += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
-
-        // Height for "Size" field
-        height += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
-
-        // Calculate height of all children
         if (listProperty != null && listProperty.isArray)
         {
             for (int i = 0; i < listProperty.arraySize; i++)
@@ -36,18 +31,14 @@ public class ReversedListDrawer : PropertyDrawer
             }
         }
 
-        // Bottom padding
         height += EditorGUIUtility.standardVerticalSpacing;
-
         return height;
     }
 
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
     {
         EditorGUI.BeginProperty(position, label, property);
-
         DrawArray(position, property, label);
-
         EditorGUI.EndProperty();
     }
 
@@ -56,16 +47,16 @@ public class ReversedListDrawer : PropertyDrawer
         SerializedProperty listProperty = property.FindPropertyRelative("list");
 
         // Foldout
-        Rect headerRect = new (position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
+        Rect headerRect = new(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
         property.isExpanded = EditorGUI.Foldout(headerRect, property.isExpanded, label, true);
 
         if (!property.isExpanded) return;
 
         EditorGUI.indentLevel++;
         float horizontalSpacing = EditorGUIUtility.standardVerticalSpacing * 2;
-        Rect currentRect = new (
+        Rect currentRect = new(
             position.x,
-            position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing, 
+            position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing,
             position.width,
             EditorGUIUtility.singleLineHeight
         );
@@ -81,8 +72,8 @@ public class ReversedListDrawer : PropertyDrawer
         {
             OnAddPress(listProperty);
         }
-        
-        buttonRect.x += buttonRect.width + horizontalSpacing*2;
+
+        buttonRect.x += buttonRect.width + horizontalSpacing * 2;
 
         if (GUI.Button(buttonRect, "Remove") && listProperty.arraySize > 0)
         {
@@ -91,13 +82,12 @@ public class ReversedListDrawer : PropertyDrawer
 
         currentRect.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
 
-        // B. Draw Size Field
+        // Size Field
         EditorGUI.BeginDisabledGroup(true);
         EditorGUI.PropertyField(currentRect, listProperty.FindPropertyRelative("Array.size"));
-        EditorGUI.EndDisabledGroup(); 
+        EditorGUI.EndDisabledGroup();
         currentRect.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing * 4;
 
-        // Draw Elements in REVERSE Loop
         if (!listProperty.isArray)
         {
             EditorGUI.indentLevel--;
@@ -107,6 +97,7 @@ public class ReversedListDrawer : PropertyDrawer
         Rect[] elementRects = new Rect[listProperty.arraySize];
         elementRectsByProperty[property.propertyPath] = elementRects;
 
+        // Draw Elements in REVERSE Loop
         for (int i = listProperty.arraySize - 1; i >= 0; i--)
         {
             DrawArrayElement(listProperty, property, ref currentRect, elementRects, i);
@@ -114,7 +105,6 @@ public class ReversedListDrawer : PropertyDrawer
 
         DragAndDrop(property, listProperty);
         EditorGUI.indentLevel--;
-
     }
 
     void DrawArrayElement(SerializedProperty listProperty, SerializedProperty property, ref Rect currentRect, Rect[] rectsCache, int i)
@@ -142,18 +132,13 @@ public class ReversedListDrawer : PropertyDrawer
         Event e = Event.current;
         if (e.type == EventType.MouseDown && e.button == 0)
         {
-            if(handleRect.Contains(e.mousePosition) && !EditorGUIUtility.editingTextField) {
+            if (handleRect.Contains(e.mousePosition) && !EditorGUIUtility.editingTextField)
+            {
                 SetDragIndex(property, i);
                 GUI.FocusControl(null);
                 e.Use();
-            } if (currentRect.Contains(e.mousePosition) && !EditorGUIUtility.editingTextField)
-            {
-                SetSelectedIndex(property, i);
             }
-
-            
         }
-
 
         int oldIndent = EditorGUI.indentLevel;
         EditorGUI.indentLevel = 0;
@@ -161,10 +146,54 @@ public class ReversedListDrawer : PropertyDrawer
         EditorGUI.indentLevel = oldIndent;
 
         GUIContent elementLabel = new($"Element {i}");
+
+        GUI.SetNextControlName(GetItemControlName(property, i));
+
         EditorGUI.PropertyField(contentRect, element, elementLabel, true);
 
         EditorGUIUtility.AddCursorRect(handleRect, MouseCursor.Pan);
         currentRect.y += elementHeight + EditorGUIUtility.standardVerticalSpacing;
+    }
+
+    void OnRemovePress(SerializedProperty listProperty, SerializedProperty property)
+    {
+        int indexToRemove = -1;
+        string focusedControl = GUI.GetNameOfFocusedControl();
+
+        // Check if the focused control matches one of our elements
+        for (int i = 0; i < listProperty.arraySize; i++)
+        {
+            if (focusedControl == GetItemControlName(property, i))
+            {
+                indexToRemove = i;
+                break;
+            }
+        }
+
+        // Fallback: If nothing is focused, remove the LAST element (which is visually at the top in a reversed list)
+        if (indexToRemove == -1)
+        {
+            indexToRemove = listProperty.arraySize - 1;
+        }
+
+        // Safety check
+        if (indexToRemove < 0 || indexToRemove >= listProperty.arraySize) return;
+
+        SerializedProperty element = listProperty.GetArrayElementAtIndex(indexToRemove);
+
+        // Unity Object Reference Quirk Check
+        if (element.propertyType == SerializedPropertyType.ObjectReference && element.objectReferenceValue != null)
+        {
+            listProperty.DeleteArrayElementAtIndex(indexToRemove);
+        }
+
+        listProperty.DeleteArrayElementAtIndex(indexToRemove);
+    }
+
+    // Helper to generate unique names for fields
+    string GetItemControlName(SerializedProperty property, int index)
+    {
+        return $"{property.propertyPath}_Item_{index}";
     }
 
     void DragAndDrop(SerializedProperty property, SerializedProperty listProperty)
@@ -185,37 +214,13 @@ public class ReversedListDrawer : PropertyDrawer
             if (target != dragIndex)
             {
                 listProperty.MoveArrayElement(dragIndex, target);
-                SetSelectedIndex(property, target);
+                GUI.FocusControl(null); // Clear focus after moving to prevent accidental deletion of wrong index
             }
             break;
         }
 
         SetDragIndex(property, -1);
         e.Use();
-    }
-
-    void OnRemovePress(SerializedProperty listProperty, SerializedProperty property)
-    {
-        int selected = GetSelectedIndex(property);
-
-        int indexToRemove =
-            (selected >= 0 && selected < listProperty.arraySize)
-            ? selected
-            : 0;
-
-        SerializedProperty element = listProperty.GetArrayElementAtIndex(indexToRemove);
-
-        // If it is a non-null Unity Object reference, the first Delete call only sets it to null.
-        // We strictly check for this specific case before double-deleting.
-        if (element.propertyType == SerializedPropertyType.ObjectReference && element.objectReferenceValue != null)
-        {
-            listProperty.DeleteArrayElementAtIndex(indexToRemove);
-        }
-
-        // Actually delete the element (or the now-null placeholder)
-        listProperty.DeleteArrayElementAtIndex(indexToRemove);
-
-        SetSelectedIndex(property, -1);
     }
 
     void OnAddPress(SerializedProperty listProperty)
@@ -246,18 +251,6 @@ public class ReversedListDrawer : PropertyDrawer
             case SerializedPropertyType.ObjectReference: property.objectReferenceValue = null; break;
             case SerializedPropertyType.Vector3: property.vector3Value = Vector3.zero; break;
         }
-    }
-
-    int GetSelectedIndex(SerializedProperty property)
-    {
-        return selectedIndexByProperty.TryGetValue(property.propertyPath, out int i)
-            ? i
-            : -1;
-    }
-
-    void SetSelectedIndex(SerializedProperty property, int index)
-    {
-        selectedIndexByProperty[property.propertyPath] = index;
     }
 
     int GetDragIndex(SerializedProperty property)
