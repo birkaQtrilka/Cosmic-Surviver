@@ -17,8 +17,7 @@ public class OceanFaceDebug : MonoBehaviour
     [Header("visualisation")]
     [SerializeField] int debugStep = 0;
     [SerializeField] int lookupStep = 0;
-    [SerializeField] ReversedList<int> test;
-    [SerializeField] ReversedList<int> triangles;
+    [SerializeField, ReadOnly] ReversedList<int> triangles;
 
     Planet planet;
     readonly OceanVertData[] _corners = new OceanVertData[4];

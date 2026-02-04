@@ -96,18 +96,19 @@ public class ReversedListDrawer : PropertyDrawer
 
         Rect[] elementRects = new Rect[listProperty.arraySize];
         elementRectsByProperty[property.propertyPath] = elementRects;
+        int dragIndex = GetDragIndex(property);
 
         // Draw Elements in REVERSE Loop
         for (int i = listProperty.arraySize - 1; i >= 0; i--)
         {
-            DrawArrayElement(listProperty, property, ref currentRect, elementRects, i);
+            DrawArrayElement(listProperty, property, ref currentRect, elementRects, i, dragIndex);
         }
 
-        DragAndDrop(property, listProperty);
+        DragAndDrop(property, listProperty, dragIndex);
         EditorGUI.indentLevel--;
     }
 
-    void DrawArrayElement(SerializedProperty listProperty, SerializedProperty property, ref Rect currentRect, Rect[] rectsCache, int i)
+    void DrawArrayElement(SerializedProperty listProperty, SerializedProperty property, ref Rect currentRect, Rect[] rectsCache, int i, int dragIndex)
     {
         SerializedProperty element = listProperty.GetArrayElementAtIndex(i);
         float elementHeight = EditorGUI.GetPropertyHeight(element, true);
@@ -148,10 +149,11 @@ public class ReversedListDrawer : PropertyDrawer
         GUIContent elementLabel = new($"Element {i}");
 
         GUI.SetNextControlName(GetItemControlName(property, i));
-
+        DrawDragVisual(currentRect, property, i, dragIndex);
         EditorGUI.PropertyField(contentRect, element, elementLabel, true);
 
-        EditorGUIUtility.AddCursorRect(handleRect, MouseCursor.Pan);
+        if (GUI.enabled) EditorGUIUtility.AddCursorRect(handleRect, MouseCursor.Pan);
+        
         currentRect.y += elementHeight + EditorGUIUtility.standardVerticalSpacing;
     }
 
@@ -196,10 +198,9 @@ public class ReversedListDrawer : PropertyDrawer
         return $"{property.propertyPath}_Item_{index}";
     }
 
-    void DragAndDrop(SerializedProperty property, SerializedProperty listProperty)
+    void DragAndDrop(SerializedProperty property, SerializedProperty listProperty, int dragIndex)
     {
         Event e = Event.current;
-        int dragIndex = GetDragIndex(property);
 
         if (dragIndex == -1) return;
 
@@ -230,13 +231,26 @@ public class ReversedListDrawer : PropertyDrawer
         ResetValue(newElement);
     }
 
-    void DrawDragVisual(Rect currentRect, SerializedProperty property, int i)
+    void DrawDragVisual(Rect currentRect, SerializedProperty property, int i, int dragIndex)
     {
-        if (GetDragIndex(property) != i) return;
-        EditorGUI.DrawRect(
-            currentRect,
-            new Color(1f, 1f, 1f, 0.08f)
-        );
+        if (dragIndex == -1) return;
+        if(dragIndex == i)
+        {
+            EditorGUI.DrawRect(
+                currentRect,
+                new Color(1f, 1f, 1f, 0.08f)
+            );
+            return;
+        }
+
+        Event e = Event.current;
+        if (currentRect.Contains(e.mousePosition)) {
+            EditorGUI.DrawRect(
+                currentRect,
+                new Color(1f, 1f, 1f, 0.2f)
+            );
+        }
+
     }
 
     private void ResetValue(SerializedProperty property)
