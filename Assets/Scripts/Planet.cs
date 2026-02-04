@@ -1,15 +1,9 @@
-using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
 using UnityEngine;
 
 [SelectionBase]
 public class Planet : MonoBehaviour
 {
-    [SerializeField] bool _debug = false;
-    [SerializeField] bool _initDebug;
-    [SerializeField] bool _step;
-    [SerializeField] bool _stepUntilVert;
+
     public static Transform player;
 
     [Range(2, 256)]
@@ -55,6 +49,9 @@ public class Planet : MonoBehaviour
         get => meshFilters != null && meshFilters.Length > 0 && meshFilters[0] != null && meshFilters[0].gameObject.activeSelf;
     }
     
+    public TerrainFace[] TerrainFaces => terrainFaces;
+    public ShapeGenerator ShapeGenerator => shapeGenerator;
+
     public void SaveColorTexture()
     {
         colorGenerator.SaveTexture();
@@ -159,104 +156,11 @@ public class Planet : MonoBehaviour
             }
         transform.position = oldPos;
     }
-    [SerializeField] ReversedList<int> triangles ;
-    List<Vector3> vertices;
-    List<Vector3> invalidVertices;
-    List<Vector3> addedVertices;
-    OceanFace.CellPoint[][] cellLookup;
-    [SerializeField] int debugStep = 0;
-    [SerializeField] int lookupStep = 0;
     void OnValidate()
     {
         if (player == null)
             player = Camera.main.transform;
-        if(_initDebug)
-        {
-            _initDebug = false;
-            InitDebug();
-        }
         
-    }
-    public void InitDebug()
-    {
-        triangles = new();
-        vertices = terrainFaces[0].BellowZeroVertices.Select(v => v.WorldPos).ToList();
-        invalidVertices = new List<Vector3>();
-        cellLookup = oceanFaces[0].InitLookUpTable();
-
-        addedVertices = new();
-        debugStep = 0;
-        lookupStep = 0;
-    }
-
-    private void OnDrawGizmos()
-    {
-        if (_step)
-        {
-            if (!_stepUntilVert) _step = false;
-
-            DoStep();
-        }
-
-        if (triangles == null) return;
-        Gizmos.color = Color.red;
-        foreach (var v in addedVertices)
-        {
-            Gizmos.DrawSphere(v, 0.01f);
-        }
-        
-        Gizmos.color = Color.yellow;
-        foreach (var v in invalidVertices)
-        {
-            Gizmos.DrawSphere(v, 0.01f);
-        }
-        Gizmos.color = Color.blue;
-
-        for (int i = 1; i < triangles.Count; i++)
-        {
-            if (i % 3 == 0) continue;
-
-            if ((i + 1) % 3 == 0)
-            {
-                Gizmos.DrawLine(vertices[triangles[i - 2]], vertices[triangles[i]]);
-            }
-            Gizmos.DrawLine(vertices[triangles[i - 1]], vertices[triangles[i]]);
-        }
-    }
-
-    public void DoStep()
-    {
-        var oceanFace = oceanFaces[0];
-
-        var (addedTriangle, addedVert, exitedLookupLoop) = oceanFace.Step(debugStep, lookupStep, vertices, cellLookup);
-        if (addedTriangle != null)
-        {
-            triangles.Add(addedTriangle.Value);
-            //Debug.Log("Added index " + addedTriangle.Value + " to triangles");
-        }
-        if (addedVert != null)
-        {
-            if (_stepUntilVert) _step = false;
-
-            addedVertices.Add(addedVert.Value);
-            //Debug.Log("Added vert " + addedVert.Value + " to verts");
-        }
-        if (exitedLookupLoop)
-        {
-            lookupStep = 0;
-            debugStep++;
-        }
-        else
-        {
-            lookupStep++;
-        }
-        if(addedTriangle == null && addedVert == null && !exitedLookupLoop)
-        {
-            lookupStep = 0;
-            debugStep++;
-
-            invalidVertices.Add(terrainFaces[0].BellowZeroVertices[debugStep].WorldPos);
-        }
     }
 
     void GenerateColours()

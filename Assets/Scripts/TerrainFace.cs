@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 public class TerrainFace
 {
@@ -13,6 +12,7 @@ public class TerrainFace
     readonly int powResolution;
     Vector3[] vertices;
     readonly float _oceanLevel;
+
     public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp, float oceanLevel = 0f)
     {
         ShapeGenerator = shapeGenerator;
@@ -24,7 +24,6 @@ public class TerrainFace
         AxisA = new Vector3(localUp.y, localUp.z, localUp.x);
         AxisB = Vector3.Cross(localUp, AxisA);
     }
-
 
     public void ConstructMesh()
     {
