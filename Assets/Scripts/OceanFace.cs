@@ -25,6 +25,7 @@ public class OceanFace
         navigator = new GridNavigator(resolution);
 
     }
+
     public void ConstructMesh()
     {
         List<Vector3> vertices = GenerateVertices();
@@ -37,6 +38,7 @@ public class OceanFace
         _mesh.uv = uvs.ToArray();
         _mesh.RecalculateNormals();
     }
+
     // look if vert is at the edge, then connect to other face
     // for me to connect, I first need to remove triange connections from one of the faces
     List<Vector3> GenerateVertices()

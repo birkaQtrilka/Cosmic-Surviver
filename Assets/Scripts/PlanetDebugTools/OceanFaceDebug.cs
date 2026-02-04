@@ -17,6 +17,7 @@ public class OceanFaceDebug : MonoBehaviour
     [Header("visualisation")]
     [SerializeField] int debugStep = 0;
     [SerializeField] int lookupStep = 0;
+    [SerializeField] ReversedList<int> test;
     [SerializeField] ReversedList<int> triangles;
 
     Planet planet;
@@ -67,9 +68,13 @@ public class OceanFaceDebug : MonoBehaviour
         catch(Exception e)
         {
             _step = false;
-            Debug.LogError(e);
+
+            Debug.LogWarning("Cannot proceed because: " + e);
             if (_autoInitOnError)
             {
+                Debug.Log("Auto Initializing the planet");
+
+                planet.GeneratePlanet();
                 InitDebug();
             }
         }
