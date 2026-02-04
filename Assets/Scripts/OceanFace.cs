@@ -150,7 +150,7 @@ public class OceanFace
             uvs.Add(uvQueue.Dequeue());
         }
 
-        return (triangles, new List<Vector2>(powResolution));
+        return (triangles, uvs);
     }
 
     // get position of vert, based on that set a uv blend
@@ -217,7 +217,6 @@ public class OceanFace
 
         return new Vector2(u, v) * 0.5f + Vector2.one * 0.5f;
     }
-
 
     public static Vector2 GetLerpedEdgePoint(CellPoint cellPoint, Vector2 gridPos, OceanVertData[] corners)
     {
