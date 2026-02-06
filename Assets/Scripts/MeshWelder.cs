@@ -1,123 +1,126 @@
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 public class MeshWelder 
 {
-    public static void CombineAndWeldMeshes(MeshFilter[] oMeshFilters, Transform parent)
+    readonly static List<Vector3> _debug = new(); 
+    public static List<Vector3> Test => _debug;
+    public static List<(Vector3, Vector3)> Test2 = new();
+    public static List<Vector3> Test3 = new();
+    public static bool EnableDebug;
+
+    public static Mesh WeldMeshes(Mesh combinedMesh, OceanFace[] faces, int resolution)
     {
-        CombineInstance[] combine = new CombineInstance[oMeshFilters.Length];
-    
-        for (int i = 0; i < oMeshFilters.Length; i++)
-        {
-            if (oMeshFilters[i] == null || oMeshFilters[i].sharedMesh == null) continue;
-    
-            combine[i].mesh = oMeshFilters[i].sharedMesh;
-            // Transform to local space of the planet manager
-            combine[i].transform = parent.worldToLocalMatrix * oMeshFilters[i].transform.localToWorldMatrix;
-    
-            oMeshFilters[i].gameObject.SetActive(false);
-        }
-    
-        Mesh combinedMesh = new Mesh();
-        combinedMesh.indexFormat = IndexFormat.UInt32; // Allow huge meshes
-        combinedMesh.CombineMeshes(combine, true, true);
+        _debug.Clear();
+        Test2.Clear();
+        Test3.Clear();
 
-
-        for (int i = 0; i < oMeshFilters.Length; i++)
+        int[] allTriangles = combinedMesh.triangles;
+        Vector3[] allVertices = combinedMesh.vertices;
+        bool[] connectedLookup = new bool[24];// 6 faces * 4 edges each, to keep track of which edges have already been connected
+        // avoid already connected edges;
+        for (int this_FaceIndex = 0; this_FaceIndex < 6; this_FaceIndex++)
         {
-            for (int j = 0; j < 4; j++)
+            for (int this_EdgeIndex = 0; this_EdgeIndex < 4; this_EdgeIndex++)
             {
-                (int face, int edge) = GridNavigator.CubeFaceConnections[i, j];
-                Mesh faceMesh = oMeshFilters[face].sharedMesh;
-                // need to modify triangles list instead of vertices, which is more complex
+                //if (FacesAreConnectedOrMark(connectedLookup, this_FaceIndex, this_EdgeIndex)) continue;// need to also look for other edge or make a lookup for both edges
+
+                (int other_FaceIndex, int other_EdgeIndex) = GridNavigator.CubeFaceConnections[this_FaceIndex, this_EdgeIndex];
+                OceanFace this_Face = faces[this_FaceIndex];
+                OceanFace other_Face = faces[other_FaceIndex];
+
+                // this should be the relative 0 or starting point of the triangles of this face
+                int this_combinedMeshTrianglesOffset = GetTrianglesGlobalOffset(faces, this_FaceIndex); 
+                int other_combinedMeshTrianglesOffset = GetTrianglesGlobalOffset(faces, other_FaceIndex);
+                int cellCount = resolution - 1;
+                
+                for (int i = 0; i < cellCount; i++)
+                {
+                    TriangleCell this_Cell = this_Face.EdgeCellTriangles[this_EdgeIndex, i];
+                    TriangleCell other_Cell = other_Face.EdgeCellTriangles[other_EdgeIndex, cellCount - 1 - i ];
+                    if(this_Cell == null || other_Cell == null) continue;
+
+                    for (int j = 0; j < this_Cell.Count; j++)
+                    {
+                        // not good, need to use triange array to acces the vert
+                        int this_globalTriangleIndex = this_Cell[j] + this_combinedMeshTrianglesOffset ;
+                        if (this_EdgeIndex == 3)
+                        {
+                            this_globalTriangleIndex ++;
+                        }
+                        Vector3 this_Vert = allVertices[allTriangles[this_globalTriangleIndex]];
+                        if (( i == 59))
+                        {
+                            Test3.Add(this_Vert);
+                        }
+                        for (int k = 0; k < other_Cell.Count; k++)
+                        {
+                            int other_globalTriangleIndex = other_Cell[k] + other_combinedMeshTrianglesOffset;
+                            
+                            Vector3 other_Vert = allVertices[allTriangles[other_globalTriangleIndex]];
+                            if ((this_EdgeIndex == 3 && i >50) || (this_EdgeIndex == 0 && i < 10))
+                            {
+                                Test2.Add((this_Vert, other_Vert));
+                            }
+                            if (math.distance(this_Vert, other_Vert) > 0.01f) continue;
+                            allTriangles[other_globalTriangleIndex] = allTriangles[this_globalTriangleIndex];
+                            if(EnableDebug) _debug.Add(this_Vert);
+                        }
+
+                    }
+                }
             }
             break;
         }
+        combinedMesh.triangles = allTriangles;
 
-        // --- STEP 2: Weld Vertices ---
-        // This is the step that actually connects the edges
-        combinedMesh = WeldVertices(combinedMesh);
-    
-        // --- STEP 3: Create GameObject ---
-        GameObject oceanObj = new GameObject("Combined Ocean");
-        oceanObj.transform.SetParent(parent);
-        oceanObj.transform.localPosition = Vector3.zero;
-        oceanObj.transform.localRotation = Quaternion.identity;
-        oceanObj.transform.localScale = Vector3.one;
-    
-        MeshFilter filter = oceanObj.AddComponent<MeshFilter>();
-        filter.sharedMesh = combinedMesh;
-    
-        MeshRenderer renderer = oceanObj.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = oMeshFilters[0].GetComponent<MeshRenderer>().sharedMaterial;
+        // 5. Recalculate internals for smooth lighting
+        combinedMesh.RecalculateNormals();
+        combinedMesh.RecalculateBounds();
+
+        return combinedMesh;
     }
     
-    // automatically copy all interior verts.
-    // I can also safely copy all non shore and non ocean vertices
-    // the vertices with indeces that are above powResolution-1 
-    // AND vertices that are on the edge of grid
-    // both need manual check of connection
-    
-    // i need to keep track of what side each mesh is and only verfi
-
-    // The Algorithm to merge duplicate vertices
-    private static Mesh WeldVertices(Mesh originalMesh, float threshold = 0.01f)
+    public static Mesh CombineMeshes(MeshFilter[] oMeshFilters, Transform parent)
     {
-        Vector3[] oldVertices = originalMesh.vertices;
-        // We assume the ocean uses UVs; if not, you can remove uvs logic
-        Vector2[] oldUvs = originalMesh.uv;
-        int[] oldTriangles = originalMesh.triangles;
-    
-        List<Vector3> newVertices = new List<Vector3>();
-        List<Vector2> newUvs = new List<Vector2>();
-        List<int> newTriangles = new List<int>();
-    
-        // Map: Position -> Index in the new list
-        // This acts as a lookup to find if we've already seen a vertex at this spot
-        Dictionary<Vector3, int> vertexMap = new Dictionary<Vector3, int>();
-    
-        for (int i = 0; i < oldVertices.Length; i++)
+        CombineInstance[] combine = new CombineInstance[oMeshFilters.Length];
+
+        for (int i = 0; i < oMeshFilters.Length; i++)
         {
-            Vector3 pos = oldVertices[i];
-    
-            // If we haven't seen this position before (or it's not close enough to an existing one)
-            // Note: Dictionary check uses exact or very close float matching depending on Unity version.
-            // For procedural planets, vertices usually align exactly.
-            if (!vertexMap.TryGetValue(pos, out int newIndex))
-            {
-                // It's a new unique vertex
-                newIndex = newVertices.Count;
-                newVertices.Add(pos);
-                if (oldUvs.Length > 0) newUvs.Add(oldUvs[i]);
-    
-                vertexMap.Add(pos, newIndex);
-            }
-    
-            // If we HAVE seen it, we skip adding it to the list, 
-            // but we might need to handle UVs here if your texture requires seams.
-            // For an ocean, usually we want to merge regardless of UVs to ensure smooth water.
+            if (oMeshFilters[i] == null || oMeshFilters[i].sharedMesh == null) continue;
+
+            combine[i].mesh = oMeshFilters[i].sharedMesh;
+            // Transform to local space of the planet manager
+            combine[i].transform = parent.worldToLocalMatrix * oMeshFilters[i].transform.localToWorldMatrix;
+
+            oMeshFilters[i].gameObject.SetActive(false);
         }
-    
-        // Remap triangles to point to the new, unique vertices
-        for (int i = 0; i < oldTriangles.Length; i++)
-        {
-            Vector3 oldPos = oldVertices[oldTriangles[i]];
-            // Find the index of the merged vertex
-            newTriangles.Add(vertexMap[oldPos]);
-        }
-    
-        // Apply back to mesh
-        Mesh finalMesh = new Mesh();
-        finalMesh.indexFormat = IndexFormat.UInt32;
-        finalMesh.vertices = newVertices.ToArray();
-        finalMesh.triangles = newTriangles.ToArray();
-        if (newUvs.Count > 0) finalMesh.uv = newUvs.ToArray();
-    
-        // CRITICAL: Now that vertices are connected, this will smooth the normals across the seams
-        finalMesh.RecalculateNormals();
-        finalMesh.RecalculateBounds();
-    
-        return finalMesh;
+
+        Mesh combinedMesh = new();
+        combinedMesh.indexFormat = IndexFormat.UInt32; // Allow huge meshes
+        combinedMesh.CombineMeshes(combine, true, true);
+
+        return combinedMesh;
     }
+
+
+    static bool FacesAreConnectedOrMark(bool[] connectedLookup, int f_1, int e_1)
+    {
+        if (connectedLookup[6 * f_1 + e_1]) return true;
+
+        connectedLookup[6 * f_1 + e_1] = true;
+        return false;
+    }
+
+    static int GetTrianglesGlobalOffset(OceanFace[] faces, int faceIndex)
+    {
+        int result = 0;
+        for (int i = 0; i < faceIndex; i++) {
+            result += faces[i].GetMesh().triangles.Length;
+        }
+        return result;
+    }
+   
 }

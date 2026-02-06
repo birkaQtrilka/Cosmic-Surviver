@@ -7,10 +7,10 @@ using UnityEngine;
 public class OceanFaceDebug : MonoBehaviour
 {
     [SerializeField, Range(0,5)] int _faceIndex = 0;
-    [SerializeField] bool _drawSides = false;
     [SerializeField] float _shift = 0.01f;
-
-    [SerializeField] bool _debug = false;
+    [SerializeField] bool _drawSides;
+    [SerializeField] bool _showMergedVertices;
+    [SerializeField] bool _drawMergedCells;
     [SerializeField] bool _initDebug;
     [SerializeField] bool _step;
     [SerializeField] bool _stepUntilVert;
@@ -33,6 +33,7 @@ public class OceanFaceDebug : MonoBehaviour
     OceanVertData[] oceanVerts;
     GridNavigator navigator;
     TerrainFace terrainFace => planet.TerrainFaces[_faceIndex];
+    OceanFace oceanFace => planet.OceanFaces[_faceIndex];
 
     void Start()
     {
@@ -54,10 +55,11 @@ public class OceanFaceDebug : MonoBehaviour
     {
         oceanVerts = terrainFace.BellowZeroVertices;
         triangles = new();
-        vertices = terrainFace.BellowZeroVertices.Select(v => v.WorldPos).ToList();
+        vertices = new List<Vector3>(oceanFace.GetMesh().vertices); //terrainFace.BellowZeroVertices.Select(v => v.WorldPos).ToList();
         invalidVertices = new List<Vector3>();
         navigator = new GridNavigator(planet.resolution);
         cellLookup = navigator.LookupTable;
+        MeshWelder.EnableDebug = _showMergedVertices;
 
         addedVertices = new();
         debugStep = 0;
@@ -110,6 +112,30 @@ public class OceanFaceDebug : MonoBehaviour
         {
             DrawSides();
         }
+        if (_showMergedVertices)
+        {
+            DrawMerged();
+        }
+        if(_drawMergedCells)
+        {
+            Gizmos.color = Color.yellow;
+            MeshWelder.Test3.ForEach(v => Gizmos.DrawSphere(v, 0.05f));
+
+        }
+    }
+
+    void DrawMerged()
+    {
+        Gizmos.color = Color.magenta;
+        MeshWelder.Test.ForEach(v => Gizmos.DrawSphere(v, 0.05f));
+        MeshWelder.Test2.ForEach(v => {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawSphere(v.Item1, 0.1f);
+            Gizmos.color = Color.red;
+            Gizmos.DrawSphere(v.Item2, 0.1f);
+            Gizmos.color = Color.green;
+            Gizmos.DrawLine(v.Item1, v.Item2);
+        });
     }
 
     void DrawSides()

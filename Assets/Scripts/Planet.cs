@@ -41,7 +41,7 @@ public class Planet : MonoBehaviour
 
     public bool IsActiveOceanMesh
     {
-        get => /*GetCombinedMesh().activeSelf || */(oMeshFilters != null && oMeshFilters.Length > 0 && oMeshFilters[0] != null && oMeshFilters[0].gameObject.activeSelf);
+        get => GetCombinedMesh().activeSelf;// (oMeshFilters != null && oMeshFilters.Length > 0 && oMeshFilters[0] != null && oMeshFilters[0].gameObject.activeSelf);
     }
 
     public bool IsActivePlanetMesh
@@ -50,6 +50,7 @@ public class Planet : MonoBehaviour
     }
     
     public TerrainFace[] TerrainFaces => terrainFaces;
+    public OceanFace[] OceanFaces => oceanFaces;
     public ShapeGenerator ShapeGenerator => shapeGenerator;
 
     public void SaveColorTexture()
@@ -132,10 +133,10 @@ public class Planet : MonoBehaviour
 
     public void SetActiveOceanMesh(bool active)
     {
-        if (oMeshFilters == null || oMeshFilters.Length == 0 || oMeshFilters[0] == null) return;
-        for (int i = 0; i < 6; i++)
-            oMeshFilters[i].gameObject.SetActive(active);
-        //GetCombinedMesh()?.SetActive(active);
+        //if (oMeshFilters == null || oMeshFilters.Length == 0 || oMeshFilters[0] == null) return;
+        //for (int i = 0; i < 6; i++)
+        //    oMeshFilters[i].gameObject.SetActive(active);
+        GetCombinedMesh()?.SetActive(active);
 
     }
 
@@ -170,8 +171,27 @@ public class Planet : MonoBehaviour
             }
         transform.position = oldPos;
 
-        //MeshWelder.CombineAndWeldMeshes(oMeshFilters, transform);
+        WeldOceanMesh();
     }
+
+    public void WeldOceanMesh()
+    {
+        Mesh combinedMesh = MeshWelder.CombineMeshes(oMeshFilters, transform);
+        Mesh weldedMesh = MeshWelder.WeldMeshes(combinedMesh, oceanFaces, resolution);
+
+        GameObject oceanObj = new("Combined Ocean");
+        oceanObj.transform.SetParent(transform);
+        oceanObj.transform.localPosition = Vector3.zero;
+        oceanObj.transform.localRotation = Quaternion.identity;
+        oceanObj.transform.localScale = Vector3.one;
+
+        MeshFilter filter = oceanObj.AddComponent<MeshFilter>();
+        filter.sharedMesh = weldedMesh;
+
+        MeshRenderer renderer = oceanObj.AddComponent<MeshRenderer>();
+        renderer.sharedMaterial = oMeshFilters[0].GetComponent<MeshRenderer>().sharedMaterial;
+    }
+
     void OnValidate()
     {
         if (player == null)

@@ -2,6 +2,32 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+public class TriangleCell
+{
+    public int Count { get; private set; }
+    readonly int[] triangleIndeces;
+    readonly int capacity;
+
+    public TriangleCell(int pCapacity)
+    {
+        triangleIndeces = new int[pCapacity];
+        capacity = pCapacity;
+        Count = 0;
+    }
+
+    public void Add(int vert)
+    {
+        if(Count >= capacity)
+        {
+            throw new InvalidOperationException("TriangleCell capacity exceeded. Cannot add more vertices.");
+        }
+        triangleIndeces[Count++] = vert;
+    }
+
+    public int this[int index] { get => triangleIndeces[index]; set => triangleIndeces[index] = value; }
+
+}
+
 [Serializable]
 public class OceanFace
 {
@@ -14,6 +40,9 @@ public class OceanFace
     //represents all corners of the current checked cell
     readonly OceanVertData[] _corners = new OceanVertData[4];
     public GridNavigator navigator;
+    //top, right, bottom, left
+    TriangleCell[,] _edgeCellTriangles;
+    public TriangleCell[,] EdgeCellTriangles => _edgeCellTriangles;
 
     public void Initialize(Mesh mesh, TerrainFace face, int resolution)
     {
@@ -23,6 +52,8 @@ public class OceanFace
         _resolution = resolution;
         shapeGenerator = terrainFace.ShapeGenerator;
         navigator = new GridNavigator(resolution);
+        _edgeCellTriangles = new TriangleCell[4, resolution-1];
+        //_edgeCellTriangles = new intTriangleCell[resolution][4] { new(resolution), new(resolution), new(resolution), new(resolution) };
 
     }
 
@@ -40,6 +71,11 @@ public class OceanFace
         return _mesh;
     }
 
+    public Mesh GetMesh()
+    {
+        return _mesh;
+    }
+
     // look if vert is at the edge, then connect to other face
     // for me to connect, I first need to remove triange connections from one of the faces
     List<Vector3> GenerateVertices()
@@ -53,11 +89,10 @@ public class OceanFace
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
-                vertices.Add(oceanVerts[i].WorldPos);
-                oceanVerts[i].VerticesArrayIndex = vertices.Count - 1;
             if (oceanVerts[i].isOcean)
             {
-                
+                vertices.Add(oceanVerts[i].WorldPos);
+                oceanVerts[i].VerticesArrayIndex = vertices.Count - 1;
                 //how far it is from ocean level
                 continue;
             }
@@ -86,7 +121,10 @@ public class OceanFace
 
         return vertices;
     }
-
+    // store edge cell triangles
+    // do not remove vertices
+    // you already have indeces of existing vertices
+    // just repplace them with the vertices of the other face when welding
     (List<int>, List<Vector2>) GenerateTrianglesAndAddAdditionalVertices(List<Vector3> vertices)
     {
         CellPoint[][] cellLookup = navigator.InitLookUpTable();
@@ -106,10 +144,11 @@ public class OceanFace
                 Vector2 uv = GetUV(dir, terrainFace.LocalUp);
                 uvs.Add(uv);
             }
-            else
-            {
-                uvs.Add(Vector2.zero);//placeholder,
-            }
+            //else
+            //{
+            //    //uvs.Add(Vector2.zero);//placeholder,
+            //}
+
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;//check only the shore or ocean verts for optimization
 
             if (x == _resolution - 1 || y == _resolution - 1) continue;// the edges don't form cells, so skip
@@ -128,14 +167,21 @@ public class OceanFace
             int d = BoolToInt(_corners[3].isOcean);
 
             int contourHash = GetContour(a, b, c, d);
-            foreach (CellPoint cellVert in cellLookup[contourHash])
+
+            TriangleCell currentEdgeCell = GetCurrentTriangleCell(x, y);
+
+            CellPoint[] cell = cellLookup[contourHash];
+            foreach (CellPoint cellVert in cell)
             {
                 if (!cellVert.IsAdditional)
                 {
                     //goes through the cells 
-                    triangles.Add(oceanVerts[i + cellVert.IndexOffset].VerticesArrayIndex);
+                    int vertIndex = oceanVerts[i + cellVert.IndexOffset].VerticesArrayIndex;
+                    triangles.Add(vertIndex);
+                    currentEdgeCell?.Add(triangles.Count - 1);
                     continue;
                 }
+
                 //the point that sits in between two vertices of the current cell
                 Vector2 edgePoint = GetLerpedEdgePoint(cellVert, gridPos, _corners);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
@@ -146,8 +192,10 @@ public class OceanFace
                 uvQueue.Enqueue(uv);
                 vertices.Add(vertex);
                 triangles.Add(vertices.Count-1);
+                currentEdgeCell?.Add(triangles.Count - 1);
+
             }
-            
+
         }
         //find out if uv line goes 
         while (uvQueue.Count > 0)
@@ -156,6 +204,91 @@ public class OceanFace
         }
 
         return (triangles, uvs);
+    }
+    // the negative is so the cells grow consistently clockwise in the edge arrays
+    bool TryGetEdgeCell(int x, int y, out Vector2Int edgeCellIndeces, out Vector2Int otherEdgeCellIndeces)
+    {
+        // the negative means that cell index goes in reverse order
+        int lastCellIndex = _resolution - 2;
+        if (y == 0) // top
+        {
+            edgeCellIndeces = new Vector2Int(0, x);
+            if (x == 0) // left
+            {
+                otherEdgeCellIndeces = new Vector2Int(3, 0);
+
+            }
+            else if (x == lastCellIndex) // right
+            { 
+                otherEdgeCellIndeces = new Vector2Int(1, y);
+            }
+            else
+            {
+                otherEdgeCellIndeces = new Vector2Int(-1, -1);
+            }
+            return true;
+        }
+        if (x == lastCellIndex) // right
+        {
+            edgeCellIndeces = new Vector2Int(1, y);
+            if (y == lastCellIndex)
+            {
+                otherEdgeCellIndeces = new Vector2Int(2, -x);
+            }
+            else
+            {
+                otherEdgeCellIndeces = new Vector2Int(-1, -1);
+            }
+            return true;
+        }
+        if(y == lastCellIndex) // bottom
+        {
+            edgeCellIndeces = new Vector2Int(2, -x);
+            
+            if (x == 0)
+            {
+                otherEdgeCellIndeces = new Vector2Int(3, -y);
+            }
+            else
+            {
+                otherEdgeCellIndeces = new Vector2Int(-1, -1);
+            }
+            return true;
+        }
+        if (x == 0)
+        {
+            edgeCellIndeces = new Vector2Int(3, -(y + 1));
+            otherEdgeCellIndeces = new Vector2Int(-1, -1);
+            return true;
+        }
+        edgeCellIndeces = new Vector2Int(-1, -1);
+        otherEdgeCellIndeces = new Vector2Int(-1, -1);
+
+        return false;
+    }
+
+    TriangleCell GetCurrentTriangleCell(int x, int y)
+    {
+        bool isEdgeCell = TryGetEdgeCell(x, y, out Vector2Int edgeCellIndeces, out Vector2Int otherEdgeCellIndeces);
+        if (!isEdgeCell) return null;
+
+        if (edgeCellIndeces.y < 0) { edgeCellIndeces.y = _resolution + edgeCellIndeces.y - 1; }
+
+        TriangleCell currentEdgeCell = _edgeCellTriangles[edgeCellIndeces.x, edgeCellIndeces.y];
+        if (currentEdgeCell == null)
+        {
+            currentEdgeCell = new TriangleCell(15);
+            _edgeCellTriangles[edgeCellIndeces.x, edgeCellIndeces.y] = currentEdgeCell;
+        }
+
+        if (otherEdgeCellIndeces.x == -1) return currentEdgeCell;
+        if (otherEdgeCellIndeces.y < 0) { otherEdgeCellIndeces.y = _resolution + otherEdgeCellIndeces.y - 1; }
+
+        var other = _edgeCellTriangles[otherEdgeCellIndeces.x, otherEdgeCellIndeces.y];
+        if (other != null) return currentEdgeCell;
+        
+        _edgeCellTriangles[otherEdgeCellIndeces.x, otherEdgeCellIndeces.y] = currentEdgeCell;
+        return currentEdgeCell;
     }
 
     // get position of vert, based on that set a uv blend
