@@ -54,18 +54,6 @@ public class OceanFace
         return _mesh;
     }
 
-    public Mesh GetMesh()
-    {
-        return _mesh;
-    }
-
-    void ResetRow(ref TriangleCell[] row)
-    {
-        row = new TriangleCell[row.Length];
-    }
-
-    // look if vert is at the edge, then connect to other face
-    // for me to connect, I first need to remove triange connections from one of the faces
     List<Vector3> GenerateVertices()
     {
         OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
@@ -158,6 +146,7 @@ public class OceanFace
         previousY = currentY;
     }
 
+    // here I'm using the square marching algorithm
     private void ProcessCell(
         int i, int x, int y, int lastCellIndex,
         List<Vector3> vertices, List<int> triangles, Queue<Vector2> uvQueue,
@@ -230,7 +219,6 @@ public class OceanFace
         }
 
         Vector2 uv = GetUV(pointOnUnitSphere, terrainFace.LocalUp);
-
         uvQueue.Enqueue(uv);
         vertices.Add(vertexPosition);
         int newIndex = vertices.Count - 1;
@@ -265,6 +253,7 @@ public class OceanFace
         return FindToWeld(_currentRow[x - 1], this_Vert, vertices);
     }
 
+    // detects overlapping vertex within the cell
     int FindToWeld(TriangleCell otherCell, Vector3 thisVert, List<Vector3> vertices)
     {
         if (otherCell == null) return -1;
@@ -302,6 +291,8 @@ public class OceanFace
         // Side 2: Bottom Edge
         if (y == lastCellIndex)
         {
+            // the reason I'm reversing the index is to have consistent rotation 
+            // without the reverse, this edge would go from left edge (3) to right edge (1)
             AddToEdgeCell(2, _resolution - x - 2, triangleIndex);
         }
 

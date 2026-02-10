@@ -5,16 +5,32 @@ using UnityEngine.Rendering;
 
 public class MeshWelder
 {
-    // Debug Data
     public static bool EnableDebug;
-    readonly static List<Vector3> _debug = new();
-    public static List<Vector3> Test => _debug;
-    public static List<(Vector3, Vector3)> Test2 = new();
-    public static List<Vector3> Test3 = new();
+    readonly static List<Vector3> _weldedVertices = new();
+    public static List<Vector3> WeldedVertices => _weldedVertices;
+
+    public static Mesh CombineMeshes(MeshFilter[] oMeshFilters, Transform parent)
+    {
+        CombineInstance[] combine = new CombineInstance[oMeshFilters.Length];
+
+        for (int i = 0; i < oMeshFilters.Length; i++)
+        {
+            if (oMeshFilters[i] == null || oMeshFilters[i].sharedMesh == null) continue;
+
+            combine[i].mesh = oMeshFilters[i].sharedMesh;
+            combine[i].transform = parent.worldToLocalMatrix * oMeshFilters[i].transform.localToWorldMatrix;
+            //oMeshFilters[i].gameObject.SetActive(false);
+            GameObject.DestroyImmediate(oMeshFilters[i].gameObject);
+        }
+
+        Mesh combinedMesh = new();
+        combinedMesh.indexFormat = IndexFormat.UInt32;
+        combinedMesh.CombineMeshes(combine, true, true);
+        return combinedMesh;
+    }
 
     public static Mesh WeldMeshes(Mesh combinedMesh, OceanFace[] faces, int resolution)
     {
-        // 1. Setup Phase
         ClearDebugData();
 
         int[] allTriangles = combinedMesh.triangles;
@@ -22,7 +38,6 @@ public class MeshWelder
         bool[] connectedLookup = new bool[24]; // 6 faces * 4 edges
         int cellCount = resolution - 1;
 
-        // 2. Iteration Phase
         for (int faceIndex = 0; faceIndex < 6; faceIndex++)
         {
             for (int edgeIndex = 0; edgeIndex < 4; edgeIndex++)
@@ -35,18 +50,12 @@ public class MeshWelder
                 );
             }
         }
-
-        // 3. Apply Phase
         combinedMesh.triangles = allTriangles;
         combinedMesh.RecalculateNormals();
         combinedMesh.RecalculateBounds();
 
         return combinedMesh;
     }
-
-    // --------------------------------------------------------------------------
-    // Logic Methods
-    // --------------------------------------------------------------------------
 
     private static void ProcessEdgeConnection(
         int faceIndexA, int edgeIndexA,
@@ -93,8 +102,7 @@ public class MeshWelder
             WeldMatchingVerticesInCells(
                 cellA, offsetA,
                 cellB, offsetB,
-                vertices, triangles,
-                edgeA, i // Context for debug
+                vertices, triangles
             );
         }
     }
@@ -102,8 +110,7 @@ public class MeshWelder
     private static void WeldMatchingVerticesInCells(
         TriangleCell cellA, int offsetA,
         TriangleCell cellB, int offsetB,
-        Vector3[] vertices, int[] triangles,
-        int edgeIndexForDebug, int cellIndexForDebug)
+        Vector3[] vertices, int[] triangles)
     {
         // Compare every vertex in Cell A with every vertex in Cell B
         for (int j = 0; j < cellA.Count; j++)
@@ -111,56 +118,18 @@ public class MeshWelder
             int triIndexA = cellA[j] + offsetA;
             Vector3 posA = vertices[triangles[triIndexA]];
 
-            HandleDebugTraceA(posA, cellIndexForDebug);
-
             for (int k = 0; k < cellB.Count; k++)
             {
                 int triIndexB = cellB[k] + offsetB;
                 Vector3 posB = vertices[triangles[triIndexB]];
 
-                HandleDebugTraceB(posA, posB, edgeIndexForDebug, cellIndexForDebug);
-
                 // The Welding Logic
                 float sqrDist = (posA - posB).sqrMagnitude;
-                if (sqrDist <= 0.001f)
-                {
-                    // Point Triangle B's index to the same vertex Triangle A is using
-                    triangles[triIndexB] = triangles[triIndexA];
+                if (sqrDist > 0.001f) continue;
+                // Point Triangle B's index to the same vertex Triangle A is using
+                triangles[triIndexB] = triangles[triIndexA];
 
-                    if (EnableDebug) _debug.Add(posA);
-                }
-            }
-        }
-    }
-
-    // --------------------------------------------------------------------------
-    // Helper / Debug Methods
-    // --------------------------------------------------------------------------
-
-    private static void ClearDebugData()
-    {
-        _debug.Clear();
-        Test2.Clear();
-        Test3.Clear();
-    }
-
-    private static void HandleDebugTraceA(Vector3 pos, int cellIndex)
-    {
-        if (EnableDebug && cellIndex == 59)
-        {
-            Test3.Add(pos);
-        }
-    }
-
-    private static void HandleDebugTraceB(Vector3 posA, Vector3 posB, int edgeIndex, int cellIndex)
-    {
-        if (EnableDebug)
-        {
-            bool condition1 = edgeIndex == 3 && cellIndex > 50;
-            bool condition2 = edgeIndex == 0 && cellIndex < 10;
-            if (condition1 || condition2)
-            {
-                Test2.Add((posA, posB));
+                if (EnableDebug) _weldedVertices.Add(posA);
             }
         }
     }
@@ -177,7 +146,7 @@ public class MeshWelder
         return false;
     }
 
-    public static int GetTrianglesGlobalOffset(OceanFace[] faces, int faceIndex)
+    private static int GetTrianglesGlobalOffset(OceanFace[] faces, int faceIndex)
     {
         int result = 0;
         for (int i = 0; i < faceIndex; i++)
@@ -187,23 +156,8 @@ public class MeshWelder
         return result;
     }
 
-    // Keep CombineMeshes as is, since it wasn't part of the complexity issue
-    public static Mesh CombineMeshes(MeshFilter[] oMeshFilters, Transform parent)
+    private static void ClearDebugData()
     {
-        CombineInstance[] combine = new CombineInstance[oMeshFilters.Length];
-
-        for (int i = 0; i < oMeshFilters.Length; i++)
-        {
-            if (oMeshFilters[i] == null || oMeshFilters[i].sharedMesh == null) continue;
-
-            combine[i].mesh = oMeshFilters[i].sharedMesh;
-            combine[i].transform = parent.worldToLocalMatrix * oMeshFilters[i].transform.localToWorldMatrix;
-            oMeshFilters[i].gameObject.SetActive(false);
-        }
-
-        Mesh combinedMesh = new();
-        combinedMesh.indexFormat = IndexFormat.UInt32;
-        combinedMesh.CombineMeshes(combine, true, true);
-        return combinedMesh;
+        _weldedVertices.Clear();
     }
 }

@@ -25,9 +25,9 @@ public class Planet : MonoBehaviour
     public bool shapeSettingsFoldout;
     [HideInInspector]
     public bool colourSettingsFoldout;
-    
-    ShapeGenerator shapeGenerator= new();
-    ColorGenerator colorGenerator= new();
+
+    readonly ShapeGenerator shapeGenerator= new();
+    readonly ColorGenerator colorGenerator = new();
 
     [SerializeField, HideInInspector] 
     MeshFilter[] meshFilters;
@@ -37,7 +37,7 @@ public class Planet : MonoBehaviour
     MeshFilter[] oMeshFilters;
     [SerializeField,HideInInspector]
     OceanFace[] oceanFaces;
-    Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
+    readonly Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
 
     public bool IsActiveOceanMesh
     {
@@ -96,7 +96,7 @@ public class Planet : MonoBehaviour
         {
             if (meshFilters[i] == null)
             {
-                GameObject meshObj = new("mesh");
+                GameObject meshObj = new("terrainMesh");
                 meshObj.transform.parent = transform;
 
                 meshObj.AddComponent<MeshRenderer>();
@@ -133,11 +133,7 @@ public class Planet : MonoBehaviour
 
     public void SetActiveOceanMesh(bool active)
     {
-        //if (oMeshFilters == null || oMeshFilters.Length == 0 || oMeshFilters[0] == null) return;
-        //for (int i = 0; i < 6; i++)
-        //    oMeshFilters[i].gameObject.SetActive(active);
         GetCombinedMesh()?.SetActive(active);
-
     }
 
     public void SetActivePlanetMesh(bool active)
@@ -176,20 +172,20 @@ public class Planet : MonoBehaviour
 
     public void WeldOceanMesh()
     {
+        Material oceanMaterial = oMeshFilters[0].GetComponent<MeshRenderer>().sharedMaterial;
         Mesh combinedMesh = MeshWelder.CombineMeshes(oMeshFilters, transform);
         Mesh weldedMesh = MeshWelder.WeldMeshes(combinedMesh, oceanFaces, resolution);
 
         GameObject oceanObj = new("Combined Ocean");
         oceanObj.transform.SetParent(transform);
-        oceanObj.transform.localPosition = Vector3.zero;
-        oceanObj.transform.localRotation = Quaternion.identity;
+        oceanObj.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
         oceanObj.transform.localScale = Vector3.one;
 
         MeshFilter filter = oceanObj.AddComponent<MeshFilter>();
         filter.sharedMesh = weldedMesh;
 
         MeshRenderer renderer = oceanObj.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = oMeshFilters[0].GetComponent<MeshRenderer>().sharedMaterial;
+        renderer.sharedMaterial = oceanMaterial;
     }
 
     void OnValidate()

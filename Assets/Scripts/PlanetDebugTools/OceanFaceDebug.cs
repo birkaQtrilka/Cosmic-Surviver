@@ -11,7 +11,6 @@ public class OceanFaceDebug : MonoBehaviour
     [SerializeField] float _shift = 0.01f;
     [SerializeField] bool _drawSides;
     [SerializeField] bool _showMergedVertices;
-    [SerializeField] bool _drawMergedCells;
     [SerializeField] bool _initDebug;
     [SerializeField] bool _step;
     [SerializeField] bool _stepUntilVert;
@@ -67,7 +66,7 @@ public class OceanFaceDebug : MonoBehaviour
     {
         oceanVerts = terrainFace.BellowZeroVertices;
         triangles = new();
-        vertices = new List<Vector3>(oceanFace.GetMesh().vertices); //terrainFace.BellowZeroVertices.Select(v => v.WorldPos).ToList();
+        vertices = new List<Vector3>(oceanFace.Vertices);
         invalidVertices = new List<Vector3>();
         navigator = new GridNavigator(planet.resolution);
         cellLookup = navigator.LookupTable;
@@ -130,12 +129,6 @@ public class OceanFaceDebug : MonoBehaviour
         {
             DrawMerged();
         }
-        if(_drawMergedCells)
-        {
-            Gizmos.color = Color.yellow;
-            MeshWelder.Test3.ForEach(v => Gizmos.DrawSphere(v, 0.05f));
-
-        }
 
         if(_drawEdgetriangles)
         {
@@ -169,15 +162,7 @@ public class OceanFaceDebug : MonoBehaviour
     void DrawMerged()
     {
         Gizmos.color = Color.magenta;
-        MeshWelder.Test.ForEach(v => Gizmos.DrawSphere(v, 0.05f));
-        MeshWelder.Test2.ForEach(v => {
-            Gizmos.color = Color.blue;
-            Gizmos.DrawSphere(v.Item1, 0.1f);
-            Gizmos.color = Color.red;
-            Gizmos.DrawSphere(v.Item2, 0.1f);
-            Gizmos.color = Color.green;
-            Gizmos.DrawLine(v.Item1, v.Item2);
-        });
+        MeshWelder.WeldedVertices.ForEach(v => Gizmos.DrawSphere(v, 0.05f));
     }
 
     void DrawSides()
