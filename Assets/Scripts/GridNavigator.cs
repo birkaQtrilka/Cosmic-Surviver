@@ -139,9 +139,9 @@ public class GridNavigator
                 new(origin), new(south), new(down),
             },
              new CellPoint[] { //14
-                new(origin), new(right), new(west),/////
-                new(right), new(south), new(west),
+                new(origin), new(right), new(west),
                 new(right), new(downRight), new(south),
+                new(right), new(south), new(west),
             },
             new CellPoint[] { //15
                 new(origin), new(right), new(downRight),

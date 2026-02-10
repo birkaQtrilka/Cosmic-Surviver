@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UIElements;
 // contains Indeces to triangle array. THEY ARE NOT VERTEX INDECES
 // USED FOR CHANGING DATA IN TRIANGLE ARRAY NOT VERTICES ARRAY
 public class TriangleCell
@@ -29,13 +31,9 @@ public class TriangleCell
     public int this[int index] { get => triangleIndeces[index]; set => triangleIndeces[index] = value; }
 
     public List<int> GetListCopy() {
-        List<int> r = new List<int>();
-        for (int i = 0; i < Count; i++)
-        {
-            r.Add(triangleIndeces[i]);
-        }
+        List<int> r = new(Count);
+        for (int i = 0; i < Count; i++) r.Add(triangleIndeces[i]);
         return r;
-        //return triangleIndeces.Take(Count).ToList();
     }
 }
 
@@ -50,12 +48,17 @@ public class OceanFace
 
     //represents all corners of the current checked cell
     readonly OceanVertData[] _corners = new OceanVertData[4];
+    //readonly List<(CornerIndexes vert, int vertIndex)> _addedAditionalVerts = new(5);
+    //TriangleCell[] _previousRow;
+    //TriangleCell[] _currentRow;
+
     public GridNavigator navigator;
     //top, right, bottom, left
     TriangleCell[,] _edgeCellTriangles;
     public TriangleCell[,] EdgeCellTriangles => _edgeCellTriangles;
     public List<Vector3> Vertices { get; private set; }
     public List<int> Triangles { get; private set; }
+    
 
     public void Initialize(Mesh mesh, TerrainFace face, int resolution)
     {
@@ -66,6 +69,8 @@ public class OceanFace
         shapeGenerator = terrainFace.ShapeGenerator;
         navigator = new GridNavigator(resolution);
         _edgeCellTriangles = new TriangleCell[4, resolution-1];
+        //_currentRow =  new TriangleCell[resolution - 1];
+        //_previousRow = new TriangleCell[resolution - 1];
 
     }
 
@@ -87,6 +92,11 @@ public class OceanFace
     public Mesh GetMesh()
     {
         return _mesh;
+    }
+
+    void ResetRow(ref TriangleCell[] row)
+    {
+        row = new TriangleCell[row.Length];
     }
 
     // look if vert is at the edge, then connect to other face
@@ -145,11 +155,19 @@ public class OceanFace
 
         // Calculate the index of the last cell row/col
         int lastCellIndex = _resolution - 2;
-
+        int previousY = 0;
         for (int i = 0; i < powResolution; i++)
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
+            //bool shouldChangeRows = previousY != y;
+            //if (shouldChangeRows)
+            //{
+            //    _previousRow = _currentRow;
+            //    _currentRow = new TriangleCell[_resolution - 1];
+            //    previousY = y;
+            //}
+
 
             if (oceanVerts[i].isOcean)
             {
@@ -157,7 +175,6 @@ public class OceanFace
                 Vector2 uv = GetUV(dir, terrainFace.LocalUp);
                 uvs.Add(uv);
             }
-
             if (!oceanVerts[i].isOcean && !oceanVerts[i].isShore) continue;
 
             // Skip the last vertex row/col as they don't start new cells
@@ -176,7 +193,7 @@ public class OceanFace
             int d = BoolToInt(_corners[3].isOcean);
 
             int contourHash = GetContour(a, b, c, d);
-            _addedAditionalVerts.Clear();
+            //_addedAditionalVerts.Clear();
             CellPoint[] cell = cellLookup[contourHash];
             foreach (CellPoint cellVert in cell)
             {
@@ -188,29 +205,50 @@ public class OceanFace
                     AddTriangleToEdgeCells(x, y, lastCellIndex, triangles.Count - 1);
                     continue;
                 }
-                int sameVertIndex = _addedAditionalVerts.FindIndex(x => x.vert.Equals(cellVert.AdditionalPos));
+                //int sameVertIndex = _addedAditionalVerts.FindIndex(x => x.vert.Equals(cellVert.AdditionalPos));
+                ////int otherVertIndex;
+                //if (sameVertIndex != -1)
+                //{
+                //    int previousVertIndex = _addedAditionalVerts[sameVertIndex].vertIndex;
 
-                if(sameVertIndex != -1)
-                {
-                    int previousVertIndex = _addedAditionalVerts[sameVertIndex].vertIndex;
-                    triangles.Add(previousVertIndex);
+                //    //otherVertIndex = ShouldWeldVertex(x, y, vertices[previousVertIndex], vertices);
+                //    //previousVertIndex = otherVertIndex ==-1 ? previousVertIndex : otherVertIndex;
+                //    triangles.Add(previousVertIndex);
 
-                    AddTriangleToEdgeCells(x, y, lastCellIndex, previousVertIndex);
-                    continue;
-                }
+                //    AddTriangleToEdgeCells(x, y, lastCellIndex, previousVertIndex);
+                //    AddTriangleToCurrentCell(x, previousVertIndex);
+                //    continue;
+                //}
+
+
                 Vector2 edgePoint = GetLerpedEdgePoint(cellVert, gridPos, _corners);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
 
                 Vector2 uv = GetUV(pointOnUnitSphere, terrainFace.LocalUp);
                 Vector3 vertex = pointOnUnitSphere * shapeGenerator.PlanetRadius;
 
+                //otherVertIndex = ShouldWeldVertex(x, y, vertex, vertices);
+                //if (otherVertIndex != -1)
+                //{
+                //    triangles.Add(otherVertIndex);
+                //    _addedAditionalVerts.Add((cellVert.AdditionalPos, otherVertIndex));
+                //    AddTriangleToCurrentCell(x, otherVertIndex);
+                //    AddTriangleToEdgeCells(x, y, lastCellIndex, otherVertIndex);
+                //    continue;
+                //}
+
+
                 uvQueue.Enqueue(uv);
                 vertices.Add(vertex);
-                triangles.Add(vertices.Count - 1);
-                _addedAditionalVerts.Add((cellVert.AdditionalPos, vertices.Count - 1));
+                int addedVertIndex = vertices.Count - 1;
 
-                AddTriangleToEdgeCells(x, y, lastCellIndex, triangles.Count - 1);
+
+                triangles.Add(addedVertIndex);
+                //_addedAditionalVerts.Add((cellVert.AdditionalPos, addedVertIndex));
+                //AddTriangleToCurrentCell(x, addedVertIndex);
+                AddTriangleToEdgeCells(x, y, lastCellIndex, addedVertIndex);
             }
+
         }
 
         while (uvQueue.Count > 0)
@@ -221,35 +259,63 @@ public class OceanFace
         return (triangles, uvs);
     }
 
-    readonly List<(CornerIndexes vert, int vertIndex)> _addedAditionalVerts = new(5);
 
-    void AddTriangleToEdgeCells(int x, int y, int lastCellIndex, int globalTriangleIndex)
+    //int ShouldWeldVertex(int x, int y, Vector3 this_Vert, List<Vector3> vertices)
+    //{
+    //    if (y != 0)
+    //    {
+    //        int r = FindToWeld(_previousRow[x], this_Vert, vertices);
+    //        if (r != -1) return r;
+    //    }
+
+    //    if (x == 0) return -1;
+    //    return FindToWeld(_currentRow[x - 1], this_Vert, vertices);
+    //}
+
+    int FindToWeld(TriangleCell otherCell, Vector3 thisVert, List<Vector3> vertices)
+    {
+        if (otherCell == null) return -1;
+        for (int k = 0; k < otherCell.Count; k++)
+        {
+            int other_TriangleIndex = otherCell[k];
+
+            Vector3 other_Vert = vertices[other_TriangleIndex];
+
+            if ((thisVert - other_Vert).sqrMagnitude <= 0.001f) return other_TriangleIndex;
+        }
+        return -1;
+    }
+
+    //void AddTriangleToCurrentCell(int x, int triangleIndex)
+    //{
+    //    _currentRow[x] ??= new TriangleCell(15);
+    //    _currentRow[x].Add(triangleIndex);
+    //}
+
+    void AddTriangleToEdgeCells(int x, int y, int lastCellIndex, int triangleIndex)
     {
         // Side 0: Top Edge
         if (y == 0)
         {
-            AddToEdgeCell(0, x, globalTriangleIndex);
+            AddToEdgeCell(0, x, triangleIndex);
         }
 
         // Side 1: Right Edge
         if (x == lastCellIndex)
         {
-            // Store linearly based on Y (0 to Res)
-            AddToEdgeCell(1, y, globalTriangleIndex);
+            AddToEdgeCell(1, y, triangleIndex);
         }
 
         // Side 2: Bottom Edge
         if (y == lastCellIndex)
         {
-            // Store linearly based on X (0 to Res)
-            AddToEdgeCell(2, _resolution - x - 2, globalTriangleIndex);
+            AddToEdgeCell(2, _resolution - x - 2, triangleIndex);
         }
 
         // Side 3: Left Edge
         if (x == 0)
         {
-            // Store linearly based on Y (0 to Res)
-            AddToEdgeCell(3, _resolution - y - 2, globalTriangleIndex);
+            AddToEdgeCell(3, _resolution - y - 2, triangleIndex);
         }
     }
 
