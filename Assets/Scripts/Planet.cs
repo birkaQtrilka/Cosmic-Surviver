@@ -9,7 +9,7 @@ public class Planet : MonoBehaviour
     [Range(2, 256)]
     public int resolution = 10;
     public bool autoUpdate = true;
-    [SerializeField] float _oceanLevel = 0.2f;
+    [SerializeField, Range(0,1)] float _oceanLevel = 0.2f;
     public enum FaceRenderMask
     {
         All,Top,Bottom,Left,Right,Fron,Back

@@ -1,107 +1,193 @@
 using System;
 using System.Collections.Generic;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-public class MeshWelder 
+public class MeshWelder
 {
-    readonly static List<Vector3> _debug = new(); 
+    // Debug Data
+    public static bool EnableDebug;
+    readonly static List<Vector3> _debug = new();
     public static List<Vector3> Test => _debug;
     public static List<(Vector3, Vector3)> Test2 = new();
     public static List<Vector3> Test3 = new();
-    public static bool EnableDebug;
 
     public static Mesh WeldMeshes(Mesh combinedMesh, OceanFace[] faces, int resolution)
     {
-        _debug.Clear();
-        Test2.Clear();
-        Test3.Clear();
-        // what I need to try 
-        //previous cells have triangles
+        // 1. Setup Phase
+        ClearDebugData();
+
         int[] allTriangles = combinedMesh.triangles;
         Vector3[] allVertices = combinedMesh.vertices;
-        bool[] connectedLookup = new bool[24];// 6 faces * 4 edges each, to keep track of which edges have already been connected
-        // avoid already connected edges;
-        for (int this_FaceIndex = 0; this_FaceIndex < 6; this_FaceIndex++)
+        bool[] connectedLookup = new bool[24]; // 6 faces * 4 edges
+        int cellCount = resolution - 1;
+
+        // 2. Iteration Phase
+        for (int faceIndex = 0; faceIndex < 6; faceIndex++)
         {
-            for (int this_EdgeIndex = 0; this_EdgeIndex < 4; this_EdgeIndex++)
+            for (int edgeIndex = 0; edgeIndex < 4; edgeIndex++)
             {
-                (int other_FaceIndex, int other_EdgeIndex) = GridNavigator.CubeFaceConnections[this_FaceIndex, this_EdgeIndex];
-                if (FacesAreConnectedOrMark(
-                    connectedLookup,
-                    this_FaceIndex,
-                    this_EdgeIndex,
-                    other_FaceIndex,
-                    other_EdgeIndex)
-                ) continue;
-                OceanFace this_Face = faces[this_FaceIndex];
-                OceanFace other_Face = faces[other_FaceIndex];
-
-                // this should be the relative 0 or starting point of the triangles of this face
-                int this_combinedMeshTrianglesOffset = GetTrianglesGlobalOffset(faces, this_FaceIndex); 
-                int other_combinedMeshTrianglesOffset = GetTrianglesGlobalOffset(faces, other_FaceIndex);
-                int cellCount = resolution - 1;
-                
-                for (int i = 0; i < cellCount; i++)
-                {
-                    TriangleCell this_Cell = this_Face.EdgeCellTriangles[this_EdgeIndex, i];
-                    TriangleCell other_Cell = other_Face.EdgeCellTriangles[other_EdgeIndex, cellCount - 1 - i ];
-                    if(this_Cell == null || other_Cell == null) continue;
-
-                    for (int j = 0; j < this_Cell.Count; j++)
-                    {
-                        // not good, need to use triange array to acces the vert
-                        int this_globalTriangleIndex = this_Cell[j] + this_combinedMeshTrianglesOffset ;
-                        //if (this_EdgeIndex == 3)
-                        //{
-                        //    this_globalTriangleIndex ++;
-                        //}
-                        Vector3 this_Vert = allVertices[allTriangles[this_globalTriangleIndex]];
-                        if (EnableDebug && ( i == 59))
-                        {
-                            Test3.Add(this_Vert);
-                        }
-                        for (int k = 0; k < other_Cell.Count; k++)
-                        {
-                            int other_globalTriangleIndex = other_Cell[k] + other_combinedMeshTrianglesOffset;
-                            
-                            Vector3 other_Vert = allVertices[allTriangles[other_globalTriangleIndex]];
-                            if (EnableDebug && ((this_EdgeIndex == 3 && i >50) || (this_EdgeIndex == 0 && i < 10)))
-                            {
-                                Test2.Add((this_Vert, other_Vert));
-                            }
-                            if ((this_Vert - other_Vert).sqrMagnitude > 0.001f) continue;
-                            allTriangles[other_globalTriangleIndex] = allTriangles[this_globalTriangleIndex];
-                            if(EnableDebug) _debug.Add(this_Vert);
-                        }
-
-                    }
-                }
+                ProcessEdgeConnection(
+                    faceIndex, edgeIndex,
+                    faces, connectedLookup,
+                    allVertices, allTriangles,
+                    cellCount
+                );
             }
         }
-        combinedMesh.triangles = allTriangles;
 
-        // 5. Recalculate internals for smooth lighting
+        // 3. Apply Phase
+        combinedMesh.triangles = allTriangles;
         combinedMesh.RecalculateNormals();
         combinedMesh.RecalculateBounds();
 
         return combinedMesh;
     }
-    static bool FacesAreConnectedOrMark(bool[] connectedLookup, int f_1, int e_1, int f_2, int e_2)
+
+    // --------------------------------------------------------------------------
+    // Logic Methods
+    // --------------------------------------------------------------------------
+
+    private static void ProcessEdgeConnection(
+        int faceIndexA, int edgeIndexA,
+        OceanFace[] faces, bool[] connectedLookup,
+        Vector3[] allVertices, int[] allTriangles,
+        int cellCount)
     {
-        // Use Face * 4 + Edge for standard grouping
-        static int getPos(int f, int e) { return f * 4 + e; }
+        // Determine neighbor
+        (int faceIndexB, int edgeIndexB) = GridNavigator.CubeFaceConnections[faceIndexA, edgeIndexA];
 
-        if (connectedLookup[getPos(f_1, e_1)]) return true;
+        // Check if we already handled this seam from the other side
+        if (FacesAreConnectedOrMark(connectedLookup, faceIndexA, edgeIndexA, faceIndexB, edgeIndexB))
+            return;
 
-        // Mark both sides as processed so the neighbor doesn't do it again
-        connectedLookup[getPos(f_1, e_1)] = true;
-        connectedLookup[getPos(f_2, e_2)] = true;
+        // Prepare data for the seam
+        OceanFace faceA = faces[faceIndexA];
+        OceanFace faceB = faces[faceIndexB];
+        int offsetA = GetTrianglesGlobalOffset(faces, faceIndexA);
+        int offsetB = GetTrianglesGlobalOffset(faces, faceIndexB);
 
+        // Walk along the seam
+        WeldSeam(
+            faceA, edgeIndexA, offsetA,
+            faceB, edgeIndexB, offsetB,
+            allVertices, allTriangles,
+            cellCount
+        );
+    }
+
+    private static void WeldSeam(
+        OceanFace faceA, int edgeA, int offsetA,
+        OceanFace faceB, int edgeB, int offsetB,
+        Vector3[] vertices, int[] triangles,
+        int cellCount)
+    {
+        for (int i = 0; i < cellCount; i++)
+        {
+            // Note: Neighbor edge runs in reverse direction relative to current edge
+            TriangleCell cellA = faceA.EdgeCellTriangles[edgeA, i];
+            TriangleCell cellB = faceB.EdgeCellTriangles[edgeB, cellCount - 1 - i];
+
+            if (cellA == null || cellB == null) continue;
+
+            WeldMatchingVerticesInCells(
+                cellA, offsetA,
+                cellB, offsetB,
+                vertices, triangles,
+                edgeA, i // Context for debug
+            );
+        }
+    }
+
+    private static void WeldMatchingVerticesInCells(
+        TriangleCell cellA, int offsetA,
+        TriangleCell cellB, int offsetB,
+        Vector3[] vertices, int[] triangles,
+        int edgeIndexForDebug, int cellIndexForDebug)
+    {
+        // Compare every vertex in Cell A with every vertex in Cell B
+        for (int j = 0; j < cellA.Count; j++)
+        {
+            int triIndexA = cellA[j] + offsetA;
+            Vector3 posA = vertices[triangles[triIndexA]];
+
+            HandleDebugTraceA(posA, cellIndexForDebug);
+
+            for (int k = 0; k < cellB.Count; k++)
+            {
+                int triIndexB = cellB[k] + offsetB;
+                Vector3 posB = vertices[triangles[triIndexB]];
+
+                HandleDebugTraceB(posA, posB, edgeIndexForDebug, cellIndexForDebug);
+
+                // The Welding Logic
+                float sqrDist = (posA - posB).sqrMagnitude;
+                if (sqrDist <= 0.001f)
+                {
+                    // Point Triangle B's index to the same vertex Triangle A is using
+                    triangles[triIndexB] = triangles[triIndexA];
+
+                    if (EnableDebug) _debug.Add(posA);
+                }
+            }
+        }
+    }
+
+    // --------------------------------------------------------------------------
+    // Helper / Debug Methods
+    // --------------------------------------------------------------------------
+
+    private static void ClearDebugData()
+    {
+        _debug.Clear();
+        Test2.Clear();
+        Test3.Clear();
+    }
+
+    private static void HandleDebugTraceA(Vector3 pos, int cellIndex)
+    {
+        if (EnableDebug && cellIndex == 59)
+        {
+            Test3.Add(pos);
+        }
+    }
+
+    private static void HandleDebugTraceB(Vector3 posA, Vector3 posB, int edgeIndex, int cellIndex)
+    {
+        if (EnableDebug)
+        {
+            bool condition1 = edgeIndex == 3 && cellIndex > 50;
+            bool condition2 = edgeIndex == 0 && cellIndex < 10;
+            if (condition1 || condition2)
+            {
+                Test2.Add((posA, posB));
+            }
+        }
+    }
+
+    private static bool FacesAreConnectedOrMark(bool[] connectedLookup, int f1, int e1, int f2, int e2)
+    {
+        int id1 = f1 * 4 + e1;
+        int id2 = f2 * 4 + e2;
+
+        if (connectedLookup[id1]) return true;
+
+        connectedLookup[id1] = true;
+        connectedLookup[id2] = true;
         return false;
     }
 
+    public static int GetTrianglesGlobalOffset(OceanFace[] faces, int faceIndex)
+    {
+        int result = 0;
+        for (int i = 0; i < faceIndex; i++)
+        {
+            result += faces[i].Triangles.Count;
+        }
+        return result;
+    }
+
+    // Keep CombineMeshes as is, since it wasn't part of the complexity issue
     public static Mesh CombineMeshes(MeshFilter[] oMeshFilters, Transform parent)
     {
         CombineInstance[] combine = new CombineInstance[oMeshFilters.Length];
@@ -111,26 +197,13 @@ public class MeshWelder
             if (oMeshFilters[i] == null || oMeshFilters[i].sharedMesh == null) continue;
 
             combine[i].mesh = oMeshFilters[i].sharedMesh;
-            // Transform to local space of the planet manager
             combine[i].transform = parent.worldToLocalMatrix * oMeshFilters[i].transform.localToWorldMatrix;
-
             oMeshFilters[i].gameObject.SetActive(false);
         }
 
         Mesh combinedMesh = new();
-        combinedMesh.indexFormat = IndexFormat.UInt32; // Allow huge meshes
+        combinedMesh.indexFormat = IndexFormat.UInt32;
         combinedMesh.CombineMeshes(combine, true, true);
-
         return combinedMesh;
     }
-
-    public static int GetTrianglesGlobalOffset(OceanFace[] faces, int faceIndex)
-    {
-        int result = 0;
-        for (int i = 0; i < faceIndex; i++) {
-            result += faces[i].Triangles.Count;
-        }
-        return result;
-    }
-   
 }

@@ -53,7 +53,7 @@ public class TerrainFace
                 //to avoid another loop in ocean face class, I'm flagging verts as bellow zero here
                 BellowZeroVertices[i] = new OceanVertData()
                 {
-                    isOcean = unscaledElevation <= 0,
+                    isOcean = unscaledElevation - _oceanLevel <= 0,
                     WorldPos = pointOnUnitSphere * ShapeGenerator.PlanetRadius,
                     VerticesArrayIndex = i,
                     DistanceToOceanLevel = unscaledElevation - _oceanLevel
