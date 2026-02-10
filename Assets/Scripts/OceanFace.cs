@@ -56,6 +56,7 @@ public class OceanFace
     public TriangleCell[,] EdgeCellTriangles => _edgeCellTriangles;
     public List<Vector3> Vertices { get; private set; }
     public List<int> Triangles { get; private set; }
+
     public void Initialize(Mesh mesh, TerrainFace face, int resolution)
     {
         _mesh = mesh;
@@ -133,10 +134,7 @@ public class OceanFace
 
         return vertices;
     }
-    // store edge cell triangles
-    // do not remove vertices
-    // you already have indeces of existing vertices
-    // just repplace them with the vertices of the other face when welding
+
     (List<int>, List<Vector2>) GenerateTrianglesAndAddAdditionalVertices(List<Vector3> vertices)
     {
         CellPoint[][] cellLookup = navigator.InitLookUpTable();
@@ -178,7 +176,7 @@ public class OceanFace
             int d = BoolToInt(_corners[3].isOcean);
 
             int contourHash = GetContour(a, b, c, d);
-
+            _addedAditionalVerts.Clear();
             CellPoint[] cell = cellLookup[contourHash];
             foreach (CellPoint cellVert in cell)
             {
@@ -187,11 +185,19 @@ public class OceanFace
                     int vertIndex = oceanVerts[i + cellVert.IndexOffset].VerticesArrayIndex;
                     triangles.Add(vertIndex);
 
-                    // FIX: Add the new triangle index to ALL relevant edge cells
                     AddTriangleToEdgeCells(x, y, lastCellIndex, triangles.Count - 1);
                     continue;
                 }
+                int sameVertIndex = _addedAditionalVerts.FindIndex(x => x.vert.Equals(cellVert.AdditionalPos));
 
+                if(sameVertIndex != -1)
+                {
+                    int previousVertIndex = _addedAditionalVerts[sameVertIndex].vertIndex;
+                    triangles.Add(previousVertIndex);
+
+                    AddTriangleToEdgeCells(x, y, lastCellIndex, previousVertIndex);
+                    continue;
+                }
                 Vector2 edgePoint = GetLerpedEdgePoint(cellVert, gridPos, _corners);
                 Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
 
@@ -201,8 +207,8 @@ public class OceanFace
                 uvQueue.Enqueue(uv);
                 vertices.Add(vertex);
                 triangles.Add(vertices.Count - 1);
+                _addedAditionalVerts.Add((cellVert.AdditionalPos, vertices.Count - 1));
 
-                // FIX: Add the new triangle index to ALL relevant edge cells
                 AddTriangleToEdgeCells(x, y, lastCellIndex, triangles.Count - 1);
             }
         }
@@ -215,6 +221,7 @@ public class OceanFace
         return (triangles, uvs);
     }
 
+    readonly List<(CornerIndexes vert, int vertIndex)> _addedAditionalVerts = new(5);
 
     void AddTriangleToEdgeCells(int x, int y, int lastCellIndex, int globalTriangleIndex)
     {
@@ -313,7 +320,7 @@ public class OceanFace
                 v = -dir.y / absZ;
             }
             else
-    {
+        {
                 // -Z face
                 u = -dir.x / absZ;
                 v = -dir.y / absZ;

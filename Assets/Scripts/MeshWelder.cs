@@ -27,23 +27,14 @@ public class MeshWelder
         {
             for (int this_EdgeIndex = 0; this_EdgeIndex < 4; this_EdgeIndex++)
             {
-                // gg - ww
-                if(this_FaceIndex == 1 && this_EdgeIndex == 1)
-                {
-
-                }
-                if (this_FaceIndex == 2 && this_EdgeIndex == 2)
-                {
-
-                }
                 (int other_FaceIndex, int other_EdgeIndex) = GridNavigator.CubeFaceConnections[this_FaceIndex, this_EdgeIndex];
-                //if (FacesAreConnectedOrMark(
-                //    connectedLookup,
-                //    this_FaceIndex,
-                //    this_EdgeIndex,
-                //    other_FaceIndex,
-                //    other_EdgeIndex)
-                //) continue;
+                if (FacesAreConnectedOrMark(
+                    connectedLookup,
+                    this_FaceIndex,
+                    this_EdgeIndex,
+                    other_FaceIndex,
+                    other_EdgeIndex)
+                ) continue;
                 OceanFace this_Face = faces[this_FaceIndex];
                 OceanFace other_Face = faces[other_FaceIndex];
 
@@ -100,9 +91,8 @@ public class MeshWelder
     static bool FacesAreConnectedOrMark(bool[] connectedLookup, int f_1, int e_1, int f_2, int e_2)
     {
         // Use Face * 4 + Edge for standard grouping
-        int getPos(int f, int e) { return f * 4 + e; }
+        static int getPos(int f, int e) { return f * 4 + e; }
 
-        // Check if THIS specific side has been processed
         if (connectedLookup[getPos(f_1, e_1)]) return true;
 
         // Mark both sides as processed so the neighbor doesn't do it again
@@ -111,6 +101,7 @@ public class MeshWelder
 
         return false;
     }
+
     public static Mesh CombineMeshes(MeshFilter[] oMeshFilters, Transform parent)
     {
         CombineInstance[] combine = new CombineInstance[oMeshFilters.Length];
@@ -133,14 +124,11 @@ public class MeshWelder
         return combinedMesh;
     }
 
-
-    
-
     public static int GetTrianglesGlobalOffset(OceanFace[] faces, int faceIndex)
     {
         int result = 0;
         for (int i = 0; i < faceIndex; i++) {
-            result += faces[i].GetMesh().triangles.Length;
+            result += faces[i].Triangles.Count;
         }
         return result;
     }

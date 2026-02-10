@@ -10,4 +10,7 @@ public readonly struct CornerIndexes
         Corner1Offset = corner1;
         Corner2Offset = corner2;
     }
+    public bool Equals(CornerIndexes other) =>
+        Corner1Offset == other.Corner1Offset &&
+        Corner2Offset == other.Corner2Offset;
 }
