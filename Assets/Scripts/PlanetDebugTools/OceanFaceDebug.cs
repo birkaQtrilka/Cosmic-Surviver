@@ -20,7 +20,7 @@ public class OceanFaceDebug : MonoBehaviour
     [SerializeField, Range(-1, 52)] int _drawSpecificCell;
     [SerializeField, Range(-1, 5)] int _faceToFlip;
     [Range(-1, 3), SerializeField] List<int> _edgesToShow;
-    [SerializeField] ReversedList<Color> faceColors;
+    [SerializeField] List<Color> faceColors;
 
     [Header("visualisation")]
     [SerializeField] int debugStep = 0;
