@@ -17,7 +17,7 @@ public class OceanFaceDebug : MonoBehaviour
     [SerializeField] bool _stepUntilVert;
     [SerializeField] bool _autoInitOnError;
     [SerializeField] bool _drawEdgetriangles;
-    [SerializeField, Range(-1, 53)] int _drawSpecificCell;
+    [SerializeField, Range(-1, 52)] int _drawSpecificCell;
     [SerializeField, Range(-1, 5)] int _faceToFlip;
     [Range(-1, 3), SerializeField] List<int> _edgesToShow;
     [SerializeField] ReversedList<Color> faceColors;
