@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
@@ -16,7 +17,8 @@ public class MeshWelder
         _debug.Clear();
         Test2.Clear();
         Test3.Clear();
-
+        // what I need to try 
+        //previous cells have triangles
         int[] allTriangles = combinedMesh.triangles;
         Vector3[] allVertices = combinedMesh.vertices;
         bool[] connectedLookup = new bool[24];// 6 faces * 4 edges each, to keep track of which edges have already been connected
@@ -25,9 +27,15 @@ public class MeshWelder
         {
             for (int this_EdgeIndex = 0; this_EdgeIndex < 4; this_EdgeIndex++)
             {
-                //if (FacesAreConnectedOrMark(connectedLookup, this_FaceIndex, this_EdgeIndex)) continue;// need to also look for other edge or make a lookup for both edges
 
                 (int other_FaceIndex, int other_EdgeIndex) = GridNavigator.CubeFaceConnections[this_FaceIndex, this_EdgeIndex];
+                if (FacesAreConnectedOrMark(
+                    connectedLookup,
+                    this_FaceIndex,
+                    this_EdgeIndex,
+                    other_FaceIndex,
+                    other_EdgeIndex)
+                ) continue;
                 OceanFace this_Face = faces[this_FaceIndex];
                 OceanFace other_Face = faces[other_FaceIndex];
 
@@ -46,12 +54,12 @@ public class MeshWelder
                     {
                         // not good, need to use triange array to acces the vert
                         int this_globalTriangleIndex = this_Cell[j] + this_combinedMeshTrianglesOffset ;
-                        if (this_EdgeIndex == 3)
-                        {
-                            this_globalTriangleIndex ++;
-                        }
+                        //if (this_EdgeIndex == 3)
+                        //{
+                        //    this_globalTriangleIndex ++;
+                        //}
                         Vector3 this_Vert = allVertices[allTriangles[this_globalTriangleIndex]];
-                        if (( i == 59))
+                        if (EnableDebug && ( i == 59))
                         {
                             Test3.Add(this_Vert);
                         }
@@ -60,11 +68,11 @@ public class MeshWelder
                             int other_globalTriangleIndex = other_Cell[k] + other_combinedMeshTrianglesOffset;
                             
                             Vector3 other_Vert = allVertices[allTriangles[other_globalTriangleIndex]];
-                            if ((this_EdgeIndex == 3 && i >50) || (this_EdgeIndex == 0 && i < 10))
+                            if (EnableDebug && ((this_EdgeIndex == 3 && i >50) || (this_EdgeIndex == 0 && i < 10)))
                             {
                                 Test2.Add((this_Vert, other_Vert));
                             }
-                            if (math.distance(this_Vert, other_Vert) > 0.01f) continue;
+                            if ((this_Vert - other_Vert).sqrMagnitude > 0.001f) continue;
                             allTriangles[other_globalTriangleIndex] = allTriangles[this_globalTriangleIndex];
                             if(EnableDebug) _debug.Add(this_Vert);
                         }
@@ -72,7 +80,6 @@ public class MeshWelder
                     }
                 }
             }
-            break;
         }
         combinedMesh.triangles = allTriangles;
 
@@ -106,15 +113,18 @@ public class MeshWelder
     }
 
 
-    static bool FacesAreConnectedOrMark(bool[] connectedLookup, int f_1, int e_1)
+    static bool FacesAreConnectedOrMark(bool[] connectedLookup, int f_1, int e_1, int f_2, int e_2)
     {
-        if (connectedLookup[6 * f_1 + e_1]) return true;
+        var faces = 6;
+        int getPos(int x, int y) { return y * faces + x; }
+        if (connectedLookup[getPos(f_1, e_1)]) return true;
 
-        connectedLookup[6 * f_1 + e_1] = true;
+        connectedLookup[getPos(f_1, e_1)] = true;
+        connectedLookup[getPos(f_2, e_2)] = true;
         return false;
     }
 
-    static int GetTrianglesGlobalOffset(OceanFace[] faces, int faceIndex)
+    public static int GetTrianglesGlobalOffset(OceanFace[] faces, int faceIndex)
     {
         int result = 0;
         for (int i = 0; i < faceIndex; i++) {

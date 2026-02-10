@@ -6,6 +6,7 @@ using UnityEngine;
 [ExecuteInEditMode, RequireComponent(typeof(Planet))]
 public class OceanFaceDebug : MonoBehaviour
 {
+    [SerializeField] bool _toggleOcean = false;
     [SerializeField, Range(0,5)] int _faceIndex = 0;
     [SerializeField] float _shift = 0.01f;
     [SerializeField] bool _drawSides;
@@ -15,6 +16,10 @@ public class OceanFaceDebug : MonoBehaviour
     [SerializeField] bool _step;
     [SerializeField] bool _stepUntilVert;
     [SerializeField] bool _autoInitOnError;
+    [SerializeField] bool _drawEdgetriangles;
+    [SerializeField, Range(-1, 53)] int _drawSpecificCell;
+    [SerializeField, Range(-1, 5)] int _faceToFlip;
+    [Range(-1, 3), SerializeField] List<int> _edgesToShow;
     [SerializeField] ReversedList<Color> faceColors;
 
     [Header("visualisation")]
@@ -49,6 +54,13 @@ public class OceanFaceDebug : MonoBehaviour
             _initDebug = false;
             InitDebug();
         }
+
+        if (_toggleOcean)
+        {
+            _toggleOcean = false;
+            planet.SetActiveOceanMesh(!planet.IsActiveOceanMesh);
+
+        }
     }
 
     public void InitDebug()
@@ -64,6 +76,8 @@ public class OceanFaceDebug : MonoBehaviour
         addedVertices = new();
         debugStep = 0;
         lookupStep = 0;
+        //Debug.Log(MeshWelder.GetTrianglesGlobalOffset(planet.OceanFaces, 2));
+
     }
 
     void OnDrawGizmos()
@@ -121,6 +135,34 @@ public class OceanFaceDebug : MonoBehaviour
             Gizmos.color = Color.yellow;
             MeshWelder.Test3.ForEach(v => Gizmos.DrawSphere(v, 0.05f));
 
+        }
+
+        if(_drawEdgetriangles)
+        {
+            DrawEdges();
+        }
+    }
+
+    void DrawEdges()
+    {
+        for (int i = 0; i < Mathf.Min(6, _edgesToShow.Count); i++)
+        {
+            if (_edgesToShow[i] < 0) continue;
+            bool shouldFlip = _faceToFlip > -1 && i == _faceToFlip;
+            OceanFace face = planet.OceanFaces[i];
+            for (int j = 0; j < planet.resolution - 1; j++) {
+                if (_drawSpecificCell > -1 && _drawSpecificCell < planet.resolution && _drawSpecificCell != j) continue;
+                if (face == null || face.Vertices == null || face.EdgeCellTriangles == null) continue;
+                int cellIndex = shouldFlip ? planet.resolution -2 - j : j;
+                if(shouldFlip)
+                {
+
+                }
+                Gizmos.color = Color.HSVToRGB((float)cellIndex / (planet.resolution - 1), .7f, (float)cellIndex / (planet.resolution -1) +.1f);
+                TriangleCell cell = face.EdgeCellTriangles[_edgesToShow[i], cellIndex];
+                if (cell == null) continue;
+                DrawTriangles(face.Vertices, cell.GetListCopy().Select(x=> face.Triangles[x]).ToList());
+            }
         }
     }
 
@@ -281,18 +323,23 @@ public class OceanFaceDebug : MonoBehaviour
         }
     }
 
+    void DrawTriangles(List<Vector3> vertices, List<int> triangles)
+    {
+            for (int i = 1; i < triangles.Count; i++)
+            {
+                if (i % 3 == 0) continue;
+                if (triangles[i] > vertices.Count) continue;
+                if ((i + 1) % 3 == 0)
+                {
+                    Gizmos.DrawLine(vertices[triangles[i - 2]], vertices[triangles[i]]);
+                }
+                Gizmos.DrawLine(vertices[triangles[i - 1]], vertices[triangles[i]]);
+            }
+    }
+
     void DrawTriangles()
     {
         Gizmos.color = Color.red;
-        for (int i = 1; i < triangles.Count; i++)
-        {
-            if (i % 3 == 0) continue;
-
-            if ((i + 1) % 3 == 0)
-            {
-                Gizmos.DrawLine(vertices[triangles[i - 2]], vertices[triangles[i]]);
-            }
-            Gizmos.DrawLine(vertices[triangles[i - 1]], vertices[triangles[i]]);
-        }
+        DrawTriangles(vertices, triangles.list);
     }
 }

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
-
+// contains Indeces to triangle array. THEY ARE NOT VERTEX INDECES
+// USED FOR CHANGING DATA IN TRIANGLE ARRAY NOT VERTICES ARRAY
 public class TriangleCell
 {
     public int Count { get; private set; }
@@ -26,6 +28,15 @@ public class TriangleCell
 
     public int this[int index] { get => triangleIndeces[index]; set => triangleIndeces[index] = value; }
 
+    public List<int> GetListCopy() {
+        List<int> r = new List<int>();
+        for (int i = 0; i < Count; i++)
+        {
+            r.Add(triangleIndeces[i]);
+        }
+        return r;
+        //return triangleIndeces.Take(Count).ToList();
+    }
 }
 
 [Serializable]
@@ -43,7 +54,8 @@ public class OceanFace
     //top, right, bottom, left
     TriangleCell[,] _edgeCellTriangles;
     public TriangleCell[,] EdgeCellTriangles => _edgeCellTriangles;
-
+    public List<Vector3> Vertices { get; private set; }
+    public List<int> Triangles { get; private set; }
     public void Initialize(Mesh mesh, TerrainFace face, int resolution)
     {
         _mesh = mesh;
@@ -53,18 +65,18 @@ public class OceanFace
         shapeGenerator = terrainFace.ShapeGenerator;
         navigator = new GridNavigator(resolution);
         _edgeCellTriangles = new TriangleCell[4, resolution-1];
-        //_edgeCellTriangles = new intTriangleCell[resolution][4] { new(resolution), new(resolution), new(resolution), new(resolution) };
 
     }
 
     public Mesh ConstructMesh()
     {
-        List<Vector3> vertices = GenerateVertices();
+        Vertices = GenerateVertices();
 
-        (List<int> triangles, List<Vector2> uvs) = GenerateTrianglesAndAddAdditionalVertices(vertices);
+        (List<int> triangles, List<Vector2> uvs) = GenerateTrianglesAndAddAdditionalVertices(Vertices);
+        Triangles = triangles;
 
         _mesh.Clear();
-        _mesh.vertices = vertices.ToArray();
+        _mesh.vertices = Vertices.ToArray();
         _mesh.triangles = triangles.ToArray();
         _mesh.uv = uvs.ToArray();
         _mesh.RecalculateNormals();
@@ -205,22 +217,25 @@ public class OceanFace
 
         return (triangles, uvs);
     }
+    
+
+
     // the negative is so the cells grow consistently clockwise in the edge arrays
     bool TryGetEdgeCell(int x, int y, out Vector2Int edgeCellIndeces, out Vector2Int otherEdgeCellIndeces)
     {
         // the negative means that cell index goes in reverse order
         int lastCellIndex = _resolution - 2;
-        if (y == 0) // top
+        if (y == 0) // top edge
         {
             edgeCellIndeces = new Vector2Int(0, x);
             if (x == 0) // left
             {
-                otherEdgeCellIndeces = new Vector2Int(3, 0);
+                otherEdgeCellIndeces = new Vector2Int(3, lastCellIndex);
 
             }
             else if (x == lastCellIndex) // right
             { 
-                otherEdgeCellIndeces = new Vector2Int(1, y);
+                otherEdgeCellIndeces = new Vector2Int(1, 0);
             }
             else
             {
@@ -228,12 +243,12 @@ public class OceanFace
             }
             return true;
         }
-        if (x == lastCellIndex) // right
+        if (x == lastCellIndex) // right edge
         {
             edgeCellIndeces = new Vector2Int(1, y);
             if (y == lastCellIndex)
             {
-                otherEdgeCellIndeces = new Vector2Int(2, -x);
+                otherEdgeCellIndeces = new Vector2Int(2, -lastCellIndex);
             }
             else
             {
@@ -241,13 +256,13 @@ public class OceanFace
             }
             return true;
         }
-        if(y == lastCellIndex) // bottom
+        if(y == lastCellIndex) // bottom edge
         {
             edgeCellIndeces = new Vector2Int(2, -x);
             
             if (x == 0)
             {
-                otherEdgeCellIndeces = new Vector2Int(3, -y);
+                otherEdgeCellIndeces = new Vector2Int(3, -lastCellIndex-1);
             }
             else
             {
@@ -255,9 +270,9 @@ public class OceanFace
             }
             return true;
         }
-        if (x == 0)
+        if (x == 0) // left edge
         {
-            edgeCellIndeces = new Vector2Int(3, -(y + 1));
+            edgeCellIndeces = new Vector2Int(3, -y-1);
             otherEdgeCellIndeces = new Vector2Int(-1, -1);
             return true;
         }
