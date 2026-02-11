@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1e30693783f4cb48abfb5466963dd05, type: 3}
   m_Name: SunColor
   m_EditorClassIdentifier: 
-  planetMat: {fileID: 2100000, guid: da8c062c4cc25114cb109b53ec32d209, type: 2}
+  planetMat: {fileID: -876546973899608171, guid: 6e462e00fc3610844ab2093595748a04,
+    type: 3}
   oceanMat: {fileID: 2100000, guid: eebadfd52e6c8564785b023e5f40da23, type: 2}
   biomeColorSettings:
     biomes:
