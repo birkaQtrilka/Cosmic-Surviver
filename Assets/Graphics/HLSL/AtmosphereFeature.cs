@@ -4,32 +4,46 @@ using UnityEngine.Rendering.Universal;
 
 public class AtmosphereFeature : ScriptableRendererFeature
 {
-    [System.Serializable]
-    public class Settings
+    private struct PlanetData
     {
-        public LayerMask planetLayer = -1; // Which layer planets are on
-        public Color atmosphereColor = new Color(0.4f, 0.6f, 1.0f);
-        public float atmosphereThickness = 100f;
-        public float atmosphereIntensity = 1f;
+        public Vector3 color;
+        public float outerRadius;
+        public Vector3 darkColor;
+        public float atmosphereIntensity;
+        public Vector3 position;
+        public float padding1;
+        public Vector4 padding2;
+        
+        public PlanetData(Vector3 col, Vector3 darkCol, Vector3 pos, float rad, float atmIntensity)
+        {
+            color = col;
+            darkColor = darkCol;
+            outerRadius = rad;
+            atmosphereIntensity = atmIntensity;
+            position = pos;
+            padding1 = 0;
+            padding2 = new();
+        }
     }
-
-    public Settings settings = new Settings();
 
     class AtmospherePass : ScriptableRenderPass
     {
         private readonly Material material;
         private RTHandle tempTexture;
-        private Settings settings;
 
         // For storing planet data
-        private Vector4[] planetPositions = new Vector4[8]; // Max 8 planets
-        private Vector4[] planetData = new Vector4[8]; // radius, atmosphere thickness, etc.
+        private PlanetData[] planetData = new PlanetData[8]; // Max 8 planets
+        private Vector3 lightSourcePos;
+
+        private GraphicsBuffer planetBuffer;
         private int planetCount;
 
-        public AtmospherePass(Material mat, Settings settings)
+        public AtmospherePass(Material mat)
         {
             material = mat;
-            this.settings = settings;
+            planetBuffer?.Release();
+            planetBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, 8, 64);
+
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -52,22 +66,25 @@ public class AtmosphereFeature : ScriptableRendererFeature
 
             for (int i = 0; i < planetCount; i++)
             {
-                // Position (xyz) and radius (w)
-                planetPositions[i] = new Vector4(
-                    planets[i].transform.position.x,
-                    planets[i].transform.position.y,
-                    planets[i].transform.position.z,
-                    planets[i].shapeSettings.planetRadius
+                Planet planet = planets[i];
+                if(planet.isLightSource) lightSourcePos = planet.transform.position;
+                if (planet.atmosphereSettings == null) continue;
+                // Additional data: atmosphere start, atmosphere end, intensity, (unused)
+                planetData[i] = new PlanetData(
+                    ColorToVector(planet.atmosphereSettings.color),
+                    ColorToVector(planet.atmosphereSettings.darkColor),
+                    planet.transform.position,
+                    planet.shapeSettings.planetRadius + planet.atmosphereSettings.thickness, // Outer radius
+                    planet.atmosphereSettings.intensity
                 );
 
-                // Additional data: atmosphere start, atmosphere end, intensity, (unused)
-                planetData[i] = new Vector4(
-                    planets[i].shapeSettings.planetRadius, // Inner radius
-                    planets[i].shapeSettings.planetRadius + settings.atmosphereThickness, // Outer radius
-                    settings.atmosphereIntensity,
-                    0
-                );
             }
+            planetBuffer.SetData(planetData);
+        }
+        
+        Vector3 ColorToVector(Color color)
+        {
+            return new Vector3(color.r, color.g, color.b);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -80,10 +97,8 @@ public class AtmosphereFeature : ScriptableRendererFeature
 
             // Pass data to shader
             cmd.SetGlobalInt("_PlanetCount", planetCount);
-            cmd.SetGlobalVectorArray("_PlanetPositions", planetPositions);
-            cmd.SetGlobalVectorArray("_PlanetData", planetData);
-            cmd.SetGlobalColor("_AtmosphereColor", settings.atmosphereColor);
-
+            cmd.SetGlobalBuffer("_PlanetDataBuffer", planetBuffer);
+            cmd.SetGlobalVector("_LightPosition", lightSourcePos);
             // Also pass camera position for view direction calculations
             cmd.SetGlobalVector("_CameraPosition", renderingData.cameraData.camera.transform.position);
 
@@ -92,11 +107,17 @@ public class AtmosphereFeature : ScriptableRendererFeature
 
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
+
         }
 
         public void Dispose()
         {
             tempTexture?.Release();
+            if (planetBuffer != null && planetBuffer.IsValid())
+            {
+                planetBuffer.Release();
+            }
+            planetBuffer = null;
         }
     }
 
@@ -109,7 +130,7 @@ public class AtmosphereFeature : ScriptableRendererFeature
         if (shader != null)
             material = CoreUtils.CreateEngineMaterial(shader);
 
-        pass = new AtmospherePass(material, settings)
+        pass = new AtmospherePass(material)
         {
             renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing
         };

@@ -24,11 +24,15 @@ public class Planet : MonoBehaviour
 
     public ShapeSettings shapeSettings;
     public ColorSettings colorSettings;
+    public AtmosphereSettings atmosphereSettings;
+    public bool isLightSource;
+
     public bool HasOceanMesh = true;
     public bool autoSaveTexture = true;
 
     [HideInInspector] public bool shapeSettingsFoldout;
     [HideInInspector] public bool colourSettingsFoldout;
+    [HideInInspector] public bool atmosphereSettingsFoldout;
 
     readonly ShapeGenerator shapeGenerator = new();
     readonly ColorGenerator colorGenerator = new();

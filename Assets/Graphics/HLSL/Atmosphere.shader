@@ -20,14 +20,24 @@ Shader "Custom/Atmosphere"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
+            struct PlanetData
+            {
+                float3 color;
+                float outerRadius;
+                float3 darkColor;
+                float atmosphereIntensity;
+                float3 position;
+                float padding1;
+                float4 padding2;
+            };
+
             TEXTURE2D(_CameraDepthTexture);
             SAMPLER(sampler_CameraDepthTexture);
             
             int _PlanetCount;
-            float4 _PlanetPositions[8];
-            float4 _PlanetData[8];
-            float3 _AtmosphereColor;
             float3 _CameraPosition;
+            float3 _LightPosition;
+            StructuredBuffer<PlanetData> _PlanetDataBuffer;
 
             float3 GetCameraRayDirection(float2 uv)
             {
@@ -36,35 +46,59 @@ Shader "Custom/Atmosphere"
                 return rayDir;
             }
 
+            float inverseLerp(float a, float b, float v)
+            {
+                return (v - a) / (b - a);
+            }
+
+            float3 DoAtmosphereOnPlanet(PlanetData planetData, float3 ray, float linearDepth) 
+            {
+                float3 planetToCam = _CameraPosition - planetData.position;
+                // d = ray
+                // l = planetToCam
+                float LD = dot(planetToCam, ray);
+                // using quadratic formula
+                float discriminant = pow(LD, 2) - dot(planetToCam, planetToCam) + pow(planetData.outerRadius, 2);
+
+                if(discriminant <= 0) return float4(0,0,0,0);
+                // earlier was skipped multiplying by 4 because we didn't need it to determine the exact intersection
+                float sqrtDiscriminant = sqrt(4 * discriminant);
+                float b = -dot(planetToCam, ray);
+                float farIntersection = b + sqrtDiscriminant;
+                float nearIntersection = b - sqrtDiscriminant;
+
+                nearIntersection = max(0, nearIntersection);
+                farIntersection = min(farIntersection, linearDepth);
+                
+                float diff = (farIntersection-nearIntersection);
+                diff = diff * planetData.atmosphereIntensity;
+                
+                if(diff <= 0) return float4(0,0,0,0);
+                
+                float3 fragWorldPos = _CameraPosition + ray * farIntersection;
+                float3 sphereNormal = normalize(fragWorldPos - planetData.position);
+                float3 lightToFragDirection = normalize(planetData.position - _LightPosition);
+
+                // return float4(planetData.color, 1) * diff ;
+                // inverseLerp(-1,1, dot(sphereNormal, lightToFragDirection))
+                float light = max(0, dot(sphereNormal, lightToFragDirection));
+                float3 finalColor = light * planetData.darkColor + (1-light) * planetData.color;
+
+                return float4(finalColor, 1) * diff*(diff) ;
+            }
+
             half4 Frag(Varyings input) : SV_Target
             {
                 float3 ray = GetCameraRayDirection(input.texcoord);
-                // d= ray
-                // l = planetToCam
-                float3 sceneColor = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, input.texcoord).rgb;
-                float3 atmosphereColor = _AtmosphereColor;
-                float4 result = float4(sceneColor,1);
+                
+                float3 result = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, input.texcoord).rgb;
+                float depth = SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, input.texcoord).r;
+                float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
+
                 for(int i = 0; i < 8; i++) {
-                    float radius = _PlanetData[i].g;
-                    float3 planetToCam = _CameraPosition - _PlanetPositions[i].rgb;
-                    float LD = dot(planetToCam, ray);
-                    
-                    if(LD > 0) continue; // prevents drawing fogs in opposite direction
-
-                    float discriminant = pow(LD, 2) - dot(planetToCam, planetToCam) + radius * radius;
-
-                    if(discriminant > 0) {
-                        discriminant *= 4;// earlier was skipped because we didn't need it to determine intersection
-                        float diff = sqrt(discriminant);
-                        // normalizing difference
-                        diff = diff/radius;
-                        result += float4(atmosphereColor, 1) * diff;                    
-                    }
+                    result += DoAtmosphereOnPlanet(_PlanetDataBuffer[i], ray, linearDepth);
                 }
-
-
-
-                return result;
+                return float4(result,0.0);
             }
 
             ENDHLSL

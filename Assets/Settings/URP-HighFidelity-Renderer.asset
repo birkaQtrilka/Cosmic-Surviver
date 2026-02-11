@@ -47,7 +47,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e803a403dd89d6147953d5a92e07821c, type: 3}
   m_Name: AtmosphereFeature
   m_EditorClassIdentifier: 
-  m_Active: 0
+  m_Active: 1
   shader: {fileID: 4800000, guid: f57bd438e7da9ab4088195ffee58334f, type: 3}
 --- !u!114 &11400000
 MonoBehaviour:
