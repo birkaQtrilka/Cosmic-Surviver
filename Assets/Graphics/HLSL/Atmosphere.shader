@@ -126,7 +126,7 @@ Shader "Custom/Atmosphere"
                 float3 cameraForward = UNITY_MATRIX_V[2].xyz * -1; 
                 float rayDepth = linearDepth / dot(ray, cameraForward);
 
-                for(int i = 0; i < 8; i++) {
+                for(int i = 0; i < _PlanetCount; i++) {
                     fragSceneColor += DoAtmosphereOnPlanet(_PlanetDataBuffer[i], ray, rayDepth);
                 }
                 return float4(fragSceneColor,0.0);

@@ -10,6 +10,7 @@ public class Planet : MonoBehaviour
     private const string CombinedOceanName = "Combined Ocean";
     private const string TerrainMeshName = "terrainMesh";
     private const string OceanMeshName = "oceanMesh";
+    readonly Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
 
     [Range(2, 256)]
     public int resolution = 10;
@@ -17,12 +18,6 @@ public class Planet : MonoBehaviour
 
     [SerializeField, Range(0, 1)]
     float _oceanLevel = 0.2f;
-
-    public enum FaceRenderMask
-    {
-        All, Top, Bottom, Left, Right, Front, Back
-    }
-    public FaceRenderMask faceRenderMask = FaceRenderMask.All;
 
     public ShapeSettings shapeSettings;
     public ColorSettings colorSettings;
@@ -39,28 +34,54 @@ public class Planet : MonoBehaviour
     readonly ShapeGenerator shapeGenerator = new();
     readonly ColorGenerator colorGenerator = new();
 
-    [SerializeField, HideInInspector] MeshFilter[] meshFilters;
+    [SerializeField] MeshFilter[] terrainMeshFilters;
+    [SerializeField] MeshFilter combinedMesh;
     [SerializeField, HideInInspector] MeshFilter[] oceanMeshFilters;
 
     TerrainFace[] terrainFaces;
     OceanFace[] oceanFaces;
 
-    readonly Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
+    public bool IsActiveOceanMesh => combinedMesh != null && combinedMesh.gameObject.activeSelf;
 
-    public bool IsActiveOceanMesh => GetCombinedMesh()?.activeSelf ?? false;
-
-    public bool IsActivePlanetMesh => meshFilters != null && meshFilters.Length > 0 && meshFilters[0] != null && meshFilters[0].gameObject.activeSelf;
+    public bool IsActivePlanetMesh => terrainMeshFilters != null && terrainMeshFilters.Length > 0 && terrainMeshFilters[0] != null && terrainMeshFilters[0].gameObject.activeSelf;
 
     public TerrainFace[] TerrainFaces => terrainFaces;
     public OceanFace[] OceanFaces => oceanFaces;
     public ShapeGenerator ShapeGenerator => shapeGenerator;
 
+    [SerializeField] bool _toggleAtmosphere;
+
+    [SerializeField, ReadOnly] bool _atmosphereActive = true;
+
+    private void OnValidate()
+    {
+        if (_toggleAtmosphere)
+        {
+            _toggleAtmosphere = false;
+            _atmosphereActive = !_atmosphereActive;
+            if (_atmosphereActive && !ActivePlanets.Contains(this)) ActivePlanets.Add(this);
+            else if (!_atmosphereActive) ActivePlanets.Remove(this);
+
+#if UNITY_EDITOR
+            // Queue a player loop update (Game View)
+            if (!Application.isPlaying)
+            {
+                UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+                // Force Scene View repaint
+                UnityEditor.SceneView.RepaintAll();
+            }
+#endif
+        }
+    }
+
     public void SaveColorTexture() => colorGenerator.SaveTexture();
 
-    GameObject GetCombinedMesh()
+    public List<MeshFilter> GetAllMeshFilters()
     {
-        var found = transform.Find(CombinedOceanName);
-        return found ? found.gameObject : null;
+        List<MeshFilter> meshFilters = new(terrainMeshFilters);
+        if(!HasOceanMesh) return meshFilters;
+        meshFilters.Add(combinedMesh);
+        return meshFilters;
     }
 
     void Initialize()
@@ -68,13 +89,11 @@ public class Planet : MonoBehaviour
         // Execute initialization while at Vector3.zero to ensure local/world space consistency
         RunActionAtZeroPosition(() =>
         {
-            DestroyImmediate(GetCombinedMesh());
-
             shapeGenerator.UpdateSettings(shapeSettings);
             colorGenerator.UpdateSettings(colorSettings);
 
-            if (meshFilters == null || meshFilters.Length == 0)
-                meshFilters = new MeshFilter[6];
+            if (terrainMeshFilters == null || terrainMeshFilters.Length == 0)
+                terrainMeshFilters = new MeshFilter[6];
 
             terrainFaces = new TerrainFace[6];
 
@@ -84,22 +103,26 @@ public class Planet : MonoBehaviour
                     oceanMeshFilters = new MeshFilter[6];
                 if (oceanFaces == null || oceanFaces.Length == 0)
                     oceanFaces = new OceanFace[6];
+                combinedMesh = SetupMeshObject(combinedMesh, CombinedOceanName, colorSettings.oceanMat, true);
+
             }
 
             for (int i = 0; i < 6; i++)
             {
-                bool renderFace = faceRenderMask == FaceRenderMask.All || (int)faceRenderMask - 1 == i;
-
                 // Setup Terrain
-                meshFilters[i] = SetupMeshObject(meshFilters[i], TerrainMeshName, colorSettings.planetMat, renderFace);
-                terrainFaces[i] = new TerrainFace(shapeGenerator, meshFilters[i].sharedMesh, resolution, directions[i], _oceanLevel);
+                terrainMeshFilters[i] = SetupMeshObject(terrainMeshFilters[i], TerrainMeshName, colorSettings.planetMat, true);
+                terrainFaces[i] = new TerrainFace(shapeGenerator, terrainMeshFilters[i].sharedMesh, resolution, directions[i], _oceanLevel);
 
                 // Setup Ocean
                 if (!HasOceanMesh) continue;
                 oceanFaces[i] ??= new OceanFace();
-                oceanMeshFilters[i] = SetupMeshObject(oceanMeshFilters[i], OceanMeshName, colorSettings.oceanMat, renderFace);
+                oceanMeshFilters[i] = SetupMeshObject(oceanMeshFilters[i], OceanMeshName, colorSettings.oceanMat, true);
                 oceanFaces[i].Initialize(oceanMeshFilters[i].sharedMesh, terrainFaces[i], resolution);
             }
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+
         });
     }
 
@@ -123,15 +146,34 @@ public class Planet : MonoBehaviour
         // Reset local position just in case
         existingFilter.transform.localPosition = Vector3.zero;
 
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(existingFilter);
+        UnityEditor.EditorUtility.SetDirty(existingFilter.gameObject);
+#endif
         return existingFilter;
     }
 
-    public void SetActiveOceanMesh(bool active) => GetCombinedMesh()?.SetActive(active);
+    public void EmptyMeshFilterCache()
+    {
+        for (int i = 0; i < 6; i++)
+        {
+            if(oceanMeshFilters.Length > i) oceanMeshFilters[i] = null;
+            if (terrainMeshFilters.Length > i) terrainMeshFilters[i] = null;
+        }
+
+        combinedMesh = null;
+    }
+
+    public void SetActiveOceanMesh(bool active)
+    {
+        if (combinedMesh == null) return;
+        combinedMesh.gameObject.SetActive(active);
+    }
 
     public void SetActivePlanetMesh(bool active)
     {
-        if (meshFilters == null) return;
-        foreach (var filter in meshFilters)
+        if (terrainMeshFilters == null) return;
+        foreach (var filter in terrainMeshFilters)
         {
             if (filter != null) filter.gameObject.SetActive(active);
         }
@@ -143,7 +185,7 @@ public class Planet : MonoBehaviour
         {
             for (int i = 0; i < 6; i++)
             {
-                if (meshFilters[i].gameObject.activeSelf)
+                if (terrainMeshFilters[i].gameObject.activeSelf)
                     terrainFaces[i].ConstructMesh();
             }
 
@@ -186,27 +228,21 @@ public class Planet : MonoBehaviour
         // Ensure we have filters to weld
         if (oceanMeshFilters == null || oceanMeshFilters.Length == 0 || oceanMeshFilters[0] == null) return;
 
-        Material oceanMaterial = oceanMeshFilters[0].GetComponent<MeshRenderer>().sharedMaterial;
         Mesh combinedMesh = MeshWelder.CombineMeshes(oceanMeshFilters, transform);
         Mesh weldedMesh = MeshWelder.WeldMeshes(combinedMesh, oceanFaces, resolution);
 
-        GameObject oceanObj = new(CombinedOceanName);
-        oceanObj.transform.SetParent(transform);
-        oceanObj.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-        oceanObj.transform.localScale = Vector3.one;
+        this.combinedMesh.sharedMesh = weldedMesh;
 
-        MeshFilter filter = oceanObj.AddComponent<MeshFilter>();
-        filter.sharedMesh = weldedMesh;
-
-        MeshRenderer renderer = oceanObj.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = oceanMaterial;
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(gameObject);
+#endif
     }
 
     void GenerateColours()
     {
         for (int i = 0; i < 6; i++)
         {
-            if (meshFilters[i].gameObject.activeSelf)
+            if (terrainMeshFilters[i].gameObject.activeSelf)
                 terrainFaces[i].UpdateUVs(colorGenerator);
         }
         colorGenerator.UpdateColors();

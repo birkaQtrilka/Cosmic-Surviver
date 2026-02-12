@@ -75,14 +75,13 @@ public class AtmosphereFeature : ScriptableRendererFeature
                 if (planet.isLightSource) lightSourcePos = planet.transform.position;
                 if (planet.atmosphereSettings == null) continue;
 
-                planetData[i] = new PlanetData(
+                planetData[planetCount++] = new PlanetData(
                     ColorToVector(planet.atmosphereSettings.color),
                     ColorToVector(planet.atmosphereSettings.darkColor),
                     planet.transform.position,
                     planet.shapeSettings.planetRadius + planet.atmosphereSettings.thickness,
                     planet.atmosphereSettings.intensity
                 );
-                planetCount++;
             }
             // Only set data if we have planets, though setting 0 is usually safe
             if (planetBuffer != null && planetBuffer.IsValid())
