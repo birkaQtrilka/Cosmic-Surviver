@@ -47,11 +47,17 @@ public class AtmosphereFeature : ScriptableRendererFeature
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            ConfigureInput(ScriptableRenderPassInput.Color | ScriptableRenderPassInput.Depth);
+            // Requesting Color input forces URP to try and create the _CameraColorTexture
+            ConfigureInput(ScriptableRenderPassInput.Color);
 
             RenderTextureDescriptor descriptor = renderingData.cameraData.cameraTargetDescriptor;
             descriptor.depthBufferBits = 0;
-            RenderingUtils.ReAllocateIfNeeded(ref tempTexture, descriptor, name: "_AtmosphereTempTex");
+
+            // Ensure we don't accidentally create a null-sized texture
+            descriptor.width = Mathf.Max(1, descriptor.width);
+            descriptor.height = Mathf.Max(1, descriptor.height);
+
+            RenderingUtils.ReAllocateIfNeeded(ref tempTexture, descriptor, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_AtmosphereTempTex");
 
             GatherPlanetData();
         }
@@ -94,14 +100,22 @@ public class AtmosphereFeature : ScriptableRendererFeature
 
             RTHandle source = renderingData.cameraData.renderer.cameraColorTargetHandle;
 
+            if (source == null || source.rt == null)
+            {
+                return;
+            }
+
             CommandBuffer cmd = CommandBufferPool.Get("Atmosphere");
 
+            // Pass data
             cmd.SetGlobalInt("_PlanetCount", planetCount);
             cmd.SetGlobalBuffer("_PlanetDataBuffer", planetBuffer);
             cmd.SetGlobalVector("_LightPosition", lightSourcePos);
             cmd.SetGlobalVector("_CameraPosition", renderingData.cameraData.camera.transform.position);
 
+            // Blit: Source -> Temp (Apply Shader)
             Blitter.BlitCameraTexture(cmd, source, tempTexture, material, 0);
+            // Blit: Temp -> Source (Write back to screen)
             Blitter.BlitCameraTexture(cmd, tempTexture, source);
 
             context.ExecuteCommandBuffer(cmd);
