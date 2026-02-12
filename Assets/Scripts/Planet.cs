@@ -1,13 +1,15 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
-[SelectionBase]
+[SelectionBase, ExecuteAlways]
 public class Planet : MonoBehaviour
 {
+    public static List<Planet> ActivePlanets = new();
+
     private const string CombinedOceanName = "Combined Ocean";
     private const string TerrainMeshName = "terrainMesh";
     private const string OceanMeshName = "oceanMesh";
-
-    public static Transform player;
 
     [Range(2, 256)]
     public int resolution = 10;
@@ -200,12 +202,6 @@ public class Planet : MonoBehaviour
         renderer.sharedMaterial = oceanMaterial;
     }
 
-    void OnValidate()
-    {
-        if (player == null)
-            player = Camera.main != null ? Camera.main.transform : null;
-    }
-
     void GenerateColours()
     {
         for (int i = 0; i < 6; i++)
@@ -240,5 +236,18 @@ public class Planet : MonoBehaviour
         if (!autoUpdate) return;
         Initialize();
         GenerateColours();
+    }
+
+    private void OnEnable()
+    {
+        if (!ActivePlanets.Contains(this))
+        {
+            ActivePlanets.Add(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        ActivePlanets.Remove(this);
     }
 }

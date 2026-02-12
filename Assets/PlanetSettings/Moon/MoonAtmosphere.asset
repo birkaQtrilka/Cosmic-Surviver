@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ac80f5d1e0dff8a429682eb34af54a73, type: 3}
   m_Name: MoonAtmosphere
   m_EditorClassIdentifier: 
-  color: {r: 0.4, g: 0.6, b: 1, a: 1}
-  darkColor: {r: 0.4, g: 0.6, b: 1, a: 1}
-  thickness: 100
-  intensity: 1
+  color: {r: 0.5224136, g: 0.68182814, b: 0.90188676, a: 1}
+  darkColor: {r: 0.05660379, g: 0.05660379, b: 0.05660379, a: 1}
+  thickness: 3.68
+  intensity: 0.007

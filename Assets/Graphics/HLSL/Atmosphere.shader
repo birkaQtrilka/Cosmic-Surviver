@@ -50,6 +50,7 @@ Shader "Custom/Atmosphere"
             {
                 return (v - a) / (b - a);
             }
+
             float scatter0(float3 sphereNormal, float3 lightDir)
             {
                 float light = saturate(dot(sphereNormal, lightDir));
@@ -75,6 +76,10 @@ Shader "Custom/Atmosphere"
 
                 return light;
             }
+            
+            float easeInExpo(float x){
+                return x == 0 ? 0 : pow(2, 10 * x - 10);
+             }
 
             float3 DoAtmosphereOnPlanet(PlanetData planetData, float3 ray, float linearDepth) 
             {
@@ -107,7 +112,7 @@ Shader "Custom/Atmosphere"
 
                 float3 finalColor = light * planetData.color + (1-light) * planetData.darkColor;
                 // finalColor
-                return float4(finalColor, 1) * diff * diff ;
+                return float4(finalColor, 1) * easeInExpo( diff);
             }
 
             half4 Frag(Varyings input) : SV_Target
