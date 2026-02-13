@@ -122,10 +122,10 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _WaveHeight: 0.05
+    - _WaveHeight: 0.6
     - _WaveHeightOffset: 0
-    - _WaveRoughness: 21.71
-    - _WaveScale: 117
+    - _WaveRoughness: 25.5
+    - _WaveScale: 140
     - _WaveSpeed: 0.02
     - _WorkflowMode: 1
     - _ZWrite: 1
