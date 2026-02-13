@@ -3452,7 +3452,7 @@
         "a": 1.0
     },
     "isMainColor": false,
-    "m_ColorMode": 1
+    "m_ColorMode": 0
 }
 
 {
@@ -4544,10 +4544,10 @@
     "m_Guid": {
         "m_GuidSerialized": "ebed0f84-51bd-4b14-b9bd-b1f1233c4834"
     },
-    "m_Name": "test",
+    "m_Name": "DepthCutoff",
     "m_DefaultRefNameVersion": 1,
-    "m_RefNameGeneratedByDisplayName": "test",
-    "m_DefaultReferenceName": "_test",
+    "m_RefNameGeneratedByDisplayName": "DepthCutoff",
+    "m_DefaultReferenceName": "_DepthCutoff",
     "m_OverrideReferenceName": "",
     "m_GeneratePropertyBlock": true,
     "m_UseCustomSlotLabel": false,
@@ -4557,7 +4557,7 @@
     "overrideHLSLDeclaration": false,
     "hlslDeclarationOverride": 0,
     "m_Hidden": false,
-    "m_Value": 0.0,
+    "m_Value": 0.6899999976158142,
     "m_FloatType": 0,
     "m_RangeValues": {
         "x": 0.0,
@@ -5870,7 +5870,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "bc0bfe17cc5f42eea895bcdc400d2ee0",
     "m_Id": 0,
-    "m_DisplayName": "test",
+    "m_DisplayName": "DepthCutoff",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -5892,10 +5892,10 @@
         "m_Expanded": true,
         "m_Position": {
             "serializedVersion": "2",
-            "x": 959.2000122070313,
-            "y": 324.0,
-            "width": 135.99993896484376,
-            "height": 33.60003662109375
+            "x": 992.7999267578125,
+            "y": 486.4000244140625,
+            "width": 136.800048828125,
+            "height": 33.59991455078125
         }
     },
     "m_Slots": [
@@ -7492,10 +7492,10 @@
         "m_Expanded": true,
         "m_Position": {
             "serializedVersion": "2",
-            "x": 1190.39990234375,
-            "y": 187.1999969482422,
+            "x": 1140.7999267578125,
+            "y": 271.20001220703127,
             "width": 130.4000244140625,
-            "height": 117.59999084472656
+            "height": 117.59994506835938
         }
     },
     "m_Slots": [

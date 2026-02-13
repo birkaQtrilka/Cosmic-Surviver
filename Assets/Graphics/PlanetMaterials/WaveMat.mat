@@ -94,13 +94,14 @@ Material:
     - _ClearCoatSmoothness: 0
     - _Cull: 2
     - _Cutoff: 0.5
+    - _DepthCutoff: 0.69
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EnvironmentReflections: 1
-    - _FoamAmount: 0.21
-    - _FoamCutoff: 1.96
+    - _FoamAmount: 0.19
+    - _FoamCutoff: 1.86
     - _FoamScale: 0.07
     - _GlossMapScale: 0
     - _Glossiness: 0

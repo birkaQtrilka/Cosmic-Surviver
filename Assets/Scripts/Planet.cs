@@ -103,7 +103,7 @@ public class Planet : MonoBehaviour
                     oceanMeshFilters = new MeshFilter[6];
                 if (oceanFaces == null || oceanFaces.Length == 0)
                     oceanFaces = new OceanFace[6];
-                combinedMesh = SetupMeshObject(combinedMesh, CombinedOceanName, colorSettings.oceanMat, true);
+                combinedMesh = SetupMeshObject(combinedMesh, CombinedOceanName, colorSettings.oceanMat, false);
 
             }
 
@@ -116,7 +116,7 @@ public class Planet : MonoBehaviour
                 // Setup Ocean
                 if (!HasOceanMesh) continue;
                 oceanFaces[i] ??= new OceanFace();
-                oceanMeshFilters[i] = SetupMeshObject(oceanMeshFilters[i], OceanMeshName, colorSettings.oceanMat, true);
+                oceanMeshFilters[i] = SetupMeshObject(oceanMeshFilters[i], OceanMeshName, colorSettings.oceanMat, false);
                 oceanFaces[i].Initialize(oceanMeshFilters[i].sharedMesh, terrainFaces[i], resolution);
             }
 #if UNITY_EDITOR
@@ -129,22 +129,31 @@ public class Planet : MonoBehaviour
     /// <summary>
     /// Helper to create or update the mesh game objects to reduce duplication.
     /// </summary>
-    MeshFilter SetupMeshObject(MeshFilter existingFilter, string objName, Material material, bool isActive)
+    MeshFilter SetupMeshObject(MeshFilter existingFilter, string objName, Material material, bool hasCollider)
     {
+        MeshCollider meshCollider = null;
         if (existingFilter == null)
         {
             GameObject meshObj = new(objName);
             meshObj.transform.parent = transform;
             meshObj.AddComponent<MeshRenderer>();
+            if (hasCollider) 
+            {
+                meshCollider = meshObj.AddComponent<MeshCollider>();
+            }
             existingFilter = meshObj.AddComponent<MeshFilter>();
             existingFilter.sharedMesh = new Mesh();
         }
 
         existingFilter.GetComponent<MeshRenderer>().sharedMaterial = material;
-        existingFilter.gameObject.SetActive(isActive);
+        if(hasCollider)
+        {
+            if (meshCollider == null) meshCollider = existingFilter.GetComponent<MeshCollider>();
+            meshCollider.sharedMesh = existingFilter.sharedMesh;
+        }
 
-        // Reset local position just in case
-        existingFilter.transform.localPosition = Vector3.zero;
+// Reset local position just in case
+existingFilter.transform.localPosition = Vector3.zero;
 
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(existingFilter);
