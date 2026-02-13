@@ -63,12 +63,14 @@ Shader "Custom/Atmosphere"
                 float light = pow(NdotL, 3); 
                 return light;
             }
+
             float scatter2(float3 sphereNormal, float3 lightDir)
             {
                 float NdotL = dot(sphereNormal, lightDir);
-                float light = smoothstep(-0.3, 1.5, NdotL);
+                float light = smoothstep(-0.1, 1.5, NdotL);
                 return light;
             }
+
             float scatter3(float3 sphereNormal, float3 lightDir)
             {
                 float light = dot(sphereNormal, lightDir) * 0.5 + 0.5;
@@ -76,10 +78,21 @@ Shader "Custom/Atmosphere"
 
                 return light;
             }
+
+            float ease0(float x)
+            {
+                return x;
+            }
             
-            float easeInExpo(float x){
+            float ease1(float x)
+            {
+                return  pow(x, 2);
+            }
+            
+            float ease2(float x)
+            {
                 return x == 0 ? 0 : pow(2, 10 * x - 10);
-             }
+            }
 
             float3 DoAtmosphereOnPlanet(PlanetData planetData, float3 ray, float linearDepth) 
             {
@@ -112,7 +125,7 @@ Shader "Custom/Atmosphere"
 
                 float3 finalColor = light * planetData.color + (1-light) * planetData.darkColor;
                 // finalColor
-                return float4(finalColor, 1) * easeInExpo( diff);
+                return float4(finalColor, 1) * ease2( diff);
             }
 
             half4 Frag(Varyings input) : SV_Target

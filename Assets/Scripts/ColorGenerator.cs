@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -12,6 +10,7 @@ public class ColorGenerator
     Texture2D texture;
     const int textureResolution = 50;
     INoiseFilter biomeNoiseFilter;
+
     public void UpdateSettings(ColorSettings settings)
     {
         this.settings = settings;
@@ -20,10 +19,12 @@ public class ColorGenerator
         biomeNoiseFilter = NoiseFilterFactory.CreateNoiseFilter(settings.biomeColorSettings.noise);
         
     }
+
     public void UpdateElevation(MinMax elevationMinMax)
     {
         settings.planetMat.SetVector("_elevationMinMax", new Vector4(elevationMinMax.Min, elevationMinMax.Max));
     }
+
     public float BiomePercentFromPoint(Vector3 pointOnSphere)
     {
         float heightPersent = (pointOnSphere.y + 1) / 2f;
@@ -42,6 +43,7 @@ public class ColorGenerator
         }
         return biomeIndex / Mathf.Max(1,(numBiomes-1));
     }
+
     public void UpdateColors()
     {
         Color32[] colours = new Color32[texture.width * texture.height];
@@ -67,6 +69,10 @@ public class ColorGenerator
         texture.SetPixels32(colours);
         texture.Apply();
         settings.planetMat.SetTexture("_texture", texture);
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(texture);
+        UnityEditor.EditorUtility.SetDirty(settings.planetMat);
+#endif
     }
 
     public void SaveTexture()
@@ -93,7 +99,8 @@ public class ColorGenerator
         AssetDatabase.CreateAsset(texture, assetPath);
         AssetDatabase.SaveAssets();
         settings.planetMat.SetTexture("_texture", texture);
-
+        UnityEditor.EditorUtility.SetDirty(texture);
+        UnityEditor.EditorUtility.SetDirty(settings.planetMat);
 #endif
     }
 }

@@ -1,10 +1,10 @@
 #ifndef MYHLSLINCLUDE_INCLUDED
 #define MYHLSLINCLUDE_INCLUDED
 // gets the coordinate returns the uv position
-void TriplanarUV_float(float3 vert, float3 norm, out float2 uv)
+void TriplanarUV_float(float3 vert, float3 norm, float blendSharpness, out float2 uv)
 {
-    float3 w = abs(norm);
-    w /= (w.x + w.y + w.z);
+    float3 w = pow(abs(norm), blendSharpness);
+    w /= dot(w, 1);
 
     float2 uvX = vert.yz;
     float2 uvY = vert.xz;

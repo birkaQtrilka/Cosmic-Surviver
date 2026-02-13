@@ -87,6 +87,7 @@ Material:
     - _AlphaToMask: 0
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
+    - _BlendSharpness: 2
     - _BumpScale: 1
     - _CellTiling: 10
     - _ClearCoatMask: 0
@@ -107,7 +108,7 @@ Material:
     - _QueueControl: 0
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _RippleDensity: 20.84
+    - _RippleDensity: 0.1
     - _RippleSlimness: 1.1
     - _RippleSpeed: 0
     - _Smoothness: 0.5
@@ -117,6 +118,7 @@ Material:
     - _SrcBlendAlpha: 1
     - _Surface: 0
     - _WaveHeight: 0
+    - _WaveHeightOffset: 0
     - _WaveRoughness: 0
     - _WaveScale: 0
     - _WaveSpeed: 0
