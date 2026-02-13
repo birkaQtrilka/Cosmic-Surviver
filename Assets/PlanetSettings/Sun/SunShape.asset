@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67f11cc6a205492459cc0a94b730081b, type: 3}
   m_Name: SunShape
   m_EditorClassIdentifier: 
-  planetRadius: 70
+  planetRadius: 50
+  sizeMult: 0.5
   noiseLayers:
   - enabled: 1
     useFirstLayerAsMask: 0
