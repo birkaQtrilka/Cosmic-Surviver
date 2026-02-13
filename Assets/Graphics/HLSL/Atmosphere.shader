@@ -86,7 +86,7 @@ Shader "Custom/Atmosphere"
             
             float ease1(float x)
             {
-                return  pow(x, 2);
+                return  pow(x, 4);
             }
             
             float ease2(float x)
@@ -112,6 +112,8 @@ Shader "Custom/Atmosphere"
                 farIntersection = min(farIntersection, linearDepth); // linearDepth is where the ray is hitting the planet
                 
                 float diff = (farIntersection-nearIntersection);
+                diff /= planetData.outerRadius; 
+                diff *= 20.0; 
                 diff = diff * planetData.atmosphereIntensity;
                 
                 if(diff <= 0) return float4(0,0,0,0);
@@ -125,7 +127,7 @@ Shader "Custom/Atmosphere"
 
                 float3 finalColor = light * planetData.color + (1-light) * planetData.darkColor;
                 // finalColor
-                return float4(finalColor, 1) * ease2( diff);
+                return float4(finalColor, 1) * ease1( diff);
             }
 
             half4 Frag(Varyings input) : SV_Target

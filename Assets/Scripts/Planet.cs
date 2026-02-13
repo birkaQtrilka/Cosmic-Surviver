@@ -148,7 +148,8 @@ public class Planet : MonoBehaviour
         existingFilter.GetComponent<MeshRenderer>().sharedMaterial = material;
         if(hasCollider)
         {
-            if (meshCollider == null) meshCollider = existingFilter.GetComponent<MeshCollider>();
+            if (meshCollider == null) meshCollider = existingFilter.gameObject.GetComponent<MeshCollider>();
+            if (meshCollider == null) meshCollider = existingFilter.gameObject.AddComponent<MeshCollider>();
             meshCollider.sharedMesh = existingFilter.sharedMesh;
         }
 

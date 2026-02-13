@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   color: {r: 0, g: 0.28805044, b: 0.86415094, a: 1}
   darkColor: {r: 0.0039215684, g: 0.005163578, b: 0.02745098, a: 1}
-  thickness: 5.57
-  intensity: 0.04
+  thickness: 19.5
+  intensity: 0.061
