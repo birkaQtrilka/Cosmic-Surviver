@@ -260,6 +260,7 @@ existingFilter.transform.localPosition = Vector3.zero;
 
     public void GeneratePlanet()
     {
+
         Initialize();
         GenerateMesh();
         GenerateColours();
