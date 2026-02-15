@@ -11,16 +11,14 @@ public class TerrainFace
     readonly int resolution;
     readonly int powResolution;
     Vector3[] vertices;
-    readonly float _oceanLevel;
 
-    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp, float oceanLevel = 0f)
+    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp)
     {
         ShapeGenerator = shapeGenerator;
         Mesh = mesh;
         this.resolution = resolution;
         powResolution =  resolution * resolution;
         LocalUp = localUp;
-        _oceanLevel = oceanLevel;
         AxisA = new Vector3(localUp.y, localUp.z, localUp.x);
         AxisB = Vector3.Cross(localUp, AxisA);
     }
@@ -50,14 +48,7 @@ public class TerrainFace
                 Vector3 vertex = pointOnUnitSphere * scaledElev;
                 vertices[i] = vertex;
 
-                //to avoid another loop in ocean face class, I'm flagging verts as bellow zero here
-                BellowZeroVertices[i] = new OceanVertData()
-                {
-                    isOcean = unscaledElevation - _oceanLevel <= 0,
-                    WorldPos = pointOnUnitSphere * ShapeGenerator.PlanetRadius,
-                    VerticesArrayIndex = i,
-                    DistanceToOceanLevel = unscaledElevation - _oceanLevel
-                } ;//marking ocean verts
+                
 
                 uv[i].y = unscaledElevation;
 
@@ -103,7 +94,22 @@ public class TerrainFace
 
     public Vector3 GetUnitSpherePointFromXY(float x, float y)
     {
-        Vector3 p = GetPointOnUnitCube(x, y);
+        return GetUnitSpherePointFromXY(x, y, resolution, LocalUp, AxisA, AxisB);
+    }
+
+    public Vector3 GetPointOnUnitCube(float x, float y)
+    {
+        return GetPointOnUnitCube(x, y, resolution, LocalUp, AxisA, AxisB);
+    }
+
+    public static Vector3 GetPointOnUnitCube(float x, float y, int resolution, Vector3 localUp, Vector3 axisA, Vector3 axisB)
+    {
+        Vector2 percent = new Vector2(x, y) / (resolution - 1);
+        return localUp + (percent.x - .5f) * 2 * axisA + (percent.y - .5f) * 2 * axisB;
+    }
+    public static Vector3 GetUnitSpherePointFromXY(float x, float y, int resolution, Vector3 localUp, Vector3 axisA, Vector3 axisB)
+    {
+        Vector3 p = GetPointOnUnitCube(x, y, resolution, localUp, axisA, axisB);
         float x2 = p.x * p.x;
         float y2 = p.y * p.y;
         float z2 = p.z * p.z;
@@ -112,12 +118,6 @@ public class TerrainFace
         float ny = p.y * Mathf.Sqrt(1f - (z2 + x2) * 0.5f + (z2 * x2) / 3f);
         float nz = p.z * Mathf.Sqrt(1f - (x2 + y2) * 0.5f + (x2 * y2) / 3f);
 
-        return new Vector3(nx,ny, nz).normalized;
-    }
-
-    public Vector3 GetPointOnUnitCube(float x, float y)
-    {
-        Vector2 percent = new Vector2(x, y) / (resolution - 1);
-        return LocalUp + (percent.x - .5f) * 2 * AxisA + (percent.y - .5f) * 2 * AxisB;
+        return new Vector3(nx, ny, nz).normalized;
     }
 }

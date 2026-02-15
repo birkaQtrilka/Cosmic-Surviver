@@ -111,13 +111,13 @@ public class Planet : MonoBehaviour
             {
                 // Setup Terrain
                 terrainMeshFilters[i] = SetupMeshObject(terrainMeshFilters[i], TerrainMeshName, colorSettings.planetMat, true);
-                terrainFaces[i] = new TerrainFace(shapeGenerator, terrainMeshFilters[i].sharedMesh, resolution, directions[i], _oceanLevel);
+                terrainFaces[i] = new TerrainFace(shapeGenerator, terrainMeshFilters[i].sharedMesh, resolution, directions[i]);
 
                 // Setup Ocean
                 if (!HasOceanMesh) continue;
                 oceanFaces[i] ??= new OceanFace();
                 oceanMeshFilters[i] = SetupMeshObject(oceanMeshFilters[i], OceanMeshName, colorSettings.oceanMat, false);
-                oceanFaces[i].Initialize(oceanMeshFilters[i].sharedMesh, terrainFaces[i], resolution);
+                oceanFaces[i].Initialize(shapeGenerator, oceanMeshFilters[i].sharedMesh, resolution, directions[i], _oceanLevel);
             }
 #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(this);

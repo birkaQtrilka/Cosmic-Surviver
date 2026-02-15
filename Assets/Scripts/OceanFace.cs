@@ -6,10 +6,11 @@ using UnityEngine;
 public class OceanFace
 {
     Mesh _mesh;
-    int powResolution;
+    int _powResolution;
     int _resolution;
-    TerrainFace terrainFace;
-    ShapeGenerator shapeGenerator;
+    ShapeGenerator _shapeGenerator;
+    float _oceanLevel;
+    OceanVertData[] oceanVerts;
 
     //represents all corners of the current checked cell
     readonly OceanVertData[] _corners = new OceanVertData[4];
@@ -24,18 +25,25 @@ public class OceanFace
     public TriangleCell[,] EdgeCellTriangles => _edgeCellTriangles;
     public List<Vector3> Vertices { get; private set; }
     public List<int> Triangles { get; private set; }
-    
-    public void Initialize(Mesh mesh, TerrainFace face, int resolution)
+    public Vector3 LocalUp { get; private set; }// z direction of face, or front of face
+    public Vector3 AxisA { get; private set; } // x direction of face
+    public Vector3 AxisB { get; private set; } // y direction of face
+
+    public void Initialize(ShapeGenerator shapeGenerator, Mesh mesh,  int resolution, Vector3 localUp, float oceanLevel = 0f)
     {
         _mesh = mesh;
-        terrainFace = face;
-        powResolution = resolution * resolution;
+        _powResolution = resolution * resolution;
         _resolution = resolution;
-        shapeGenerator = terrainFace.ShapeGenerator;
-        navigator = new GridNavigator(resolution);
+        _shapeGenerator = shapeGenerator;
+        _oceanLevel = oceanLevel;
         _edgeCellTriangles = new TriangleCell[4, resolution-1];
         _currentRow =  new TriangleCell[resolution - 1];
         _previousRow = new TriangleCell[resolution - 1];
+
+        navigator = new GridNavigator(resolution);
+        LocalUp = localUp;
+        AxisA = new Vector3(localUp.y, localUp.z, localUp.x);
+        AxisB = Vector3.Cross(localUp, AxisA);
 
     }
 
@@ -56,15 +64,27 @@ public class OceanFace
 
     List<Vector3> GenerateVertices()
     {
-        OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
-        List<Vector3> vertices = new(powResolution);
-
+        List<Vector3> vertices = new(_powResolution);
+        oceanVerts = new OceanVertData[_powResolution];
         //can be parallel
         //marks the surrounding vertices of bellow zero vertices as "shore", so they can be later used to create the square marching edges
-        for (int i = 0; i < oceanVerts.Length; i++)
+        for (int i = 0; i < _powResolution; i++)
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
+            
+            Vector3 pointOnUnitSphere = TerrainFace.GetUnitSpherePointFromXY(x, y, _resolution, LocalUp, AxisA, AxisB);
+            float unscaledElevation = _shapeGenerator.CalculateUnscaledElevation(pointOnUnitSphere);
+
+            //to avoid another loop in ocean face class, I'm flagging verts as bellow zero here
+            oceanVerts[i] = new OceanVertData()
+            {
+                isOcean = unscaledElevation - _oceanLevel <= 0,
+                WorldPos = pointOnUnitSphere * _shapeGenerator.PlanetRadius,
+                VerticesArrayIndex = i,
+                DistanceToOceanLevel = unscaledElevation - _oceanLevel
+            };
+
             if (oceanVerts[i].isOcean)
             {
                 vertices.Add(oceanVerts[i].WorldPos);
@@ -101,15 +121,14 @@ public class OceanFace
     public (List<int>, List<Vector2>) GenerateTrianglesAndAddAdditionalVertices(List<Vector3> vertices)
     {
         CellPoint[][] cellLookup = navigator.InitLookUpTable();
-        OceanVertData[] oceanVerts = terrainFace.BellowZeroVertices;
-        List<int> triangles = new(terrainFace.Mesh.triangles.Length);
-        List<Vector2> uvs = new(powResolution);
+        List<int> triangles = new(6 * (_resolution-1) * (_resolution - 1));
+        List<Vector2> uvs = new(_powResolution);
         Queue<Vector2> uvQueue = new();
 
         int lastCellIndex = _resolution - 2;
         int previousY = 0;
 
-        for (int i = 0; i < powResolution; i++)
+        for (int i = 0; i < _powResolution; i++)
         {
             int y = i / _resolution;
             int x = i - y * _resolution;
@@ -117,8 +136,8 @@ public class OceanFace
             ManageRowBuffers(y, ref previousY);
             if (oceanVerts[i].isOcean)
             {
-                Vector3 dir = terrainFace.GetUnitSpherePointFromXY(x, y);
-                uvs.Add(GetUV(dir, terrainFace.LocalUp));
+                Vector3 dir = TerrainFace.GetUnitSpherePointFromXY(x, y, _resolution, LocalUp, AxisA, AxisB);
+                uvs.Add(GetUV(dir, LocalUp));
             }
             // Skip non-relevant cells or edge vertices that don't start a cell
             if ((!oceanVerts[i].isOcean && !oceanVerts[i].isShore) ||
@@ -206,8 +225,8 @@ public class OceanFace
         }
 
         Vector2 edgePoint = GetLerpedEdgePoint(cellVert, gridPos, _corners);
-        Vector3 pointOnUnitSphere = terrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y);
-        Vector3 vertexPosition = pointOnUnitSphere * shapeGenerator.PlanetRadius;
+        Vector3 pointOnUnitSphere = TerrainFace.GetUnitSpherePointFromXY(edgePoint.x, edgePoint.y, _resolution, LocalUp, AxisA, AxisB);
+        Vector3 vertexPosition = pointOnUnitSphere * _shapeGenerator.PlanetRadius;
 
         int otherVertIndex = ShouldWeldVertex(x, y, vertexPosition, vertices);
 
@@ -218,7 +237,7 @@ public class OceanFace
             return otherVertIndex;
         }
 
-        Vector2 uv = GetUV(pointOnUnitSphere, terrainFace.LocalUp);
+        Vector2 uv = GetUV(pointOnUnitSphere, LocalUp);
         uvQueue.Enqueue(uv);
         vertices.Add(vertexPosition);
         int newIndex = vertices.Count - 1;
