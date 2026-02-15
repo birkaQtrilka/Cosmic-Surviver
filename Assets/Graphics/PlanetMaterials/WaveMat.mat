@@ -122,7 +122,7 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _WaveHeight: 0.6
+    - _WaveHeight: 0.09
     - _WaveHeightOffset: 0
     - _WaveRoughness: 25.5
     - _WaveScale: 140
