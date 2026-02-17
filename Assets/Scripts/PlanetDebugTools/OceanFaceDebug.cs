@@ -64,7 +64,7 @@ public class OceanFaceDebug : MonoBehaviour
 
     public void InitDebug()
     {
-        oceanVerts = terrainFace.BellowZeroVertices;
+        oceanVerts = oceanFace.oceanVerts;
         triangles = new();
         vertices = new List<Vector3>(oceanFace.Vertices);
         invalidVertices = new List<Vector3>();
@@ -169,9 +169,9 @@ public class OceanFaceDebug : MonoBehaviour
     {
         var resolution = planet.resolution;
         int i = 0;
-        foreach (var f in planet.TerrainFaces)
+        foreach (var f in planet.OceanFaces)
         {
-            var verts = f.BellowZeroVertices;
+            var verts = f.oceanVerts;
             var topLeft = verts[0].WorldPos;
             var topRight = verts[resolution - 1].WorldPos;
             var bottomLeft = verts[(resolution - 1)*resolution].WorldPos;

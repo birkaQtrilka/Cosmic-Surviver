@@ -1,21 +1,18 @@
 using UnityEngine;
 public class TerrainFace
 {
-    public Mesh Mesh { get; }
     public Vector3 LocalUp { get; }// z direction of face, or front of face
     public Vector3 AxisA { get; } // x direction of face
     public Vector3 AxisB { get; } // y direction of face
     public ShapeGenerator ShapeGenerator { get; }
-    public OceanVertData[] BellowZeroVertices { get; private set; }
 
     readonly int resolution;
     readonly int powResolution;
     Vector3[] vertices;
 
-    public TerrainFace(ShapeGenerator shapeGenerator, Mesh mesh, int resolution, Vector3 localUp)
+    public TerrainFace(ShapeGenerator shapeGenerator, int resolution, Vector3 localUp)
     {
         ShapeGenerator = shapeGenerator;
-        Mesh = mesh;
         this.resolution = resolution;
         powResolution =  resolution * resolution;
         LocalUp = localUp;
@@ -23,7 +20,7 @@ public class TerrainFace
         AxisB = Vector3.Cross(localUp, AxisA);
     }
 
-    public void ConstructMesh()
+    public MeshData ConstructMesh()
     {
         vertices = new Vector3[powResolution];
         int[] triangles = new int[(resolution - 1) * (resolution - 1) * 6];
@@ -31,7 +28,6 @@ public class TerrainFace
         //u-color
         //v-unscaled height
         Vector2[] uv = new Vector2[powResolution];
-        BellowZeroVertices = new OceanVertData[powResolution];
         int triIndex = 0;
         //creates a square with varying elevations depending on the noise settings and "blows it up" in a sphere shape
         //in order to have a uniform distribution of triangles
@@ -48,8 +44,6 @@ public class TerrainFace
                 Vector3 vertex = pointOnUnitSphere * scaledElev;
                 vertices[i] = vertex;
 
-                
-
                 uv[i].y = unscaledElevation;
 
                 if (x == resolution - 1 || y == resolution - 1) continue;
@@ -64,18 +58,12 @@ public class TerrainFace
                 triIndex += 6;
             }
         }
-        
-        Mesh.Clear();
-        Mesh.vertices = vertices;
-        Mesh.triangles = triangles;
-        Mesh.RecalculateNormals();
-        Mesh.uv = uv;
-        
+        return new MeshData(triangles, vertices, uv);
     }
     
-    public void UpdateUVs(ColorGenerator colorGenerator)
+    public void UpdateUVs(ColorGenerator colorGenerator, Mesh mesh)
     {
-        Vector2[] uv = Mesh.uv;
+        Vector2[] uv = mesh.uv;
 
         for (int y = 0; y < resolution; y++)
         {
@@ -89,7 +77,7 @@ public class TerrainFace
                 uv[i].x = colorGenerator.BiomePercentFromPoint(pointOnUnitSphere);
             }
         }
-        Mesh.uv = uv;
+        mesh.uv = uv;
     }
 
     public Vector3 GetUnitSpherePointFromXY(float x, float y)
@@ -107,6 +95,7 @@ public class TerrainFace
         Vector2 percent = new Vector2(x, y) / (resolution - 1);
         return localUp + (percent.x - .5f) * 2 * axisA + (percent.y - .5f) * 2 * axisB;
     }
+
     public static Vector3 GetUnitSpherePointFromXY(float x, float y, int resolution, Vector3 localUp, Vector3 axisA, Vector3 axisB)
     {
         Vector3 p = GetPointOnUnitCube(x, y, resolution, localUp, axisA, axisB);

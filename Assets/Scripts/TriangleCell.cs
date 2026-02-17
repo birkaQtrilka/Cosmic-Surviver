@@ -28,6 +28,7 @@ public class TriangleCell
 
     public int this[int index] { get => triangleIndeces[index]; set => triangleIndeces[index] = value; }
 
+    // for debugging
     public List<int> GetListCopy() {
         List<int> r = new(Count);
         for (int i = 0; i < Count; i++) r.Add(triangleIndeces[i]);

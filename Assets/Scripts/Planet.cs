@@ -111,13 +111,13 @@ public class Planet : MonoBehaviour
             {
                 // Setup Terrain
                 terrainMeshFilters[i] = SetupMeshObject(terrainMeshFilters[i], TerrainMeshName, colorSettings.planetMat, true);
-                terrainFaces[i] = new TerrainFace(shapeGenerator, terrainMeshFilters[i].sharedMesh, resolution, directions[i]);
+                terrainFaces[i] = new TerrainFace(shapeGenerator, resolution, directions[i]);
 
                 // Setup Ocean
                 if (!HasOceanMesh) continue;
                 oceanFaces[i] ??= new OceanFace();
                 oceanMeshFilters[i] = SetupMeshObject(oceanMeshFilters[i], OceanMeshName, colorSettings.oceanMat, false);
-                oceanFaces[i].Initialize(shapeGenerator, oceanMeshFilters[i].sharedMesh, resolution, directions[i], _oceanLevel);
+                oceanFaces[i].Initialize(shapeGenerator, resolution, directions[i], _oceanLevel);
             }
 #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(this);
@@ -195,8 +195,14 @@ existingFilter.transform.localPosition = Vector3.zero;
         {
             for (int i = 0; i < 6; i++)
             {
-                if (terrainMeshFilters[i].gameObject.activeSelf)
-                    terrainFaces[i].ConstructMesh();
+                if (!terrainMeshFilters[i].gameObject.activeSelf) continue;
+                Mesh mesh = oceanMeshFilters[i].sharedMesh;
+                mesh.Clear();
+                MeshData data = terrainFaces[i].ConstructMesh();
+                mesh.vertices = data.vertices;
+                mesh.triangles = data.triangles;
+                mesh.uv = data.uv;
+                mesh.RecalculateNormals();
             }
 
             colorGenerator.UpdateElevation(shapeGenerator.elevationMinMax);
@@ -204,8 +210,15 @@ existingFilter.transform.localPosition = Vector3.zero;
             if (!HasOceanMesh) return;
             for (int i = 0; i < 6; i++)
             {
-                if (oceanMeshFilters[i].gameObject.activeSelf)
-                    oceanFaces[i].ConstructMesh();
+                if (!oceanMeshFilters[i].gameObject.activeSelf) continue;
+                Mesh mesh = oceanMeshFilters[i].sharedMesh;
+                mesh.Clear();
+                MeshData data = oceanFaces[i].ConstructMesh();
+                mesh.vertices = data.vertices;
+                mesh.triangles = data.triangles;
+                mesh.uv = data.uv;
+                mesh.RecalculateNormals();
+
             }
         });
 
@@ -253,7 +266,7 @@ existingFilter.transform.localPosition = Vector3.zero;
         for (int i = 0; i < 6; i++)
         {
             if (terrainMeshFilters[i].gameObject.activeSelf)
-                terrainFaces[i].UpdateUVs(colorGenerator);
+                terrainFaces[i].UpdateUVs(colorGenerator, terrainMeshFilters[i].sharedMesh);
         }
         colorGenerator.UpdateColors();
     }

@@ -2,15 +2,28 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+public readonly struct MeshData
+{
+    public readonly int[] triangles;
+    public readonly Vector3[] vertices;
+    public readonly Vector2[] uv;
+
+    public MeshData(int[] triangles, Vector3[] vertices, Vector2[] uv)
+    {
+        this.triangles = triangles;
+        this.vertices = vertices;
+        this.uv = uv;
+    }
+}
+
 [Serializable]
 public class OceanFace
 {
-    Mesh _mesh;
     int _powResolution;
     int _resolution;
     ShapeGenerator _shapeGenerator;
     float _oceanLevel;
-    OceanVertData[] oceanVerts;
+    public OceanVertData[] oceanVerts;
 
     //represents all corners of the current checked cell
     readonly OceanVertData[] _corners = new OceanVertData[4];
@@ -25,13 +38,13 @@ public class OceanFace
     public TriangleCell[,] EdgeCellTriangles => _edgeCellTriangles;
     public List<Vector3> Vertices { get; private set; }
     public List<int> Triangles { get; private set; }
+    public List<Vector2> Uvs { get; private set; }
     public Vector3 LocalUp { get; private set; }// z direction of face, or front of face
     public Vector3 AxisA { get; private set; } // x direction of face
     public Vector3 AxisB { get; private set; } // y direction of face
 
-    public void Initialize(ShapeGenerator shapeGenerator, Mesh mesh,  int resolution, Vector3 localUp, float oceanLevel = 0f)
+    public void Initialize(ShapeGenerator shapeGenerator, int resolution, Vector3 localUp, float oceanLevel = 0f)
     {
-        _mesh = mesh;
         _powResolution = resolution * resolution;
         _resolution = resolution;
         _shapeGenerator = shapeGenerator;
@@ -47,19 +60,14 @@ public class OceanFace
 
     }
 
-    public Mesh ConstructMesh()
+    public MeshData ConstructMesh()
     {
         Vertices = GenerateVertices();
 
         (List<int> triangles, List<Vector2> uvs) = GenerateTrianglesAndAddAdditionalVertices(Vertices);
         Triangles = triangles;
-
-        _mesh.Clear();
-        _mesh.vertices = Vertices.ToArray();
-        _mesh.triangles = triangles.ToArray();
-        _mesh.uv = uvs.ToArray();
-        _mesh.RecalculateNormals();
-        return _mesh;
+        Uvs = uvs;
+        return new MeshData(Triangles.ToArray(), Vertices.ToArray(), uvs.ToArray());
     }
 
     List<Vector3> GenerateVertices()
