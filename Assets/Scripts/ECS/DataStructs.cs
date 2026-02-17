@@ -15,6 +15,9 @@ public struct SimpleNoiseSettings
     public float minValue;
     public int numLayers;
     public float3 center;
+    // a valid value means that is a RigidNoiseSettings
+    public bool isRigid;
+    public float weightMultiplier;
 }
 
 [System.Serializable]

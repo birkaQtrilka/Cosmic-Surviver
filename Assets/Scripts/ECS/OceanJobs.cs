@@ -13,6 +13,17 @@ public static class PlanetOceanJobs
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float EvaluateNoise(float3 point, SimpleNoiseSettings settings)
     {
+        if (settings.isRigid)
+        {
+            return EvaluateRigidNoise(point, settings);
+        }
+
+        return EvaluateSimpleNoise(point, settings);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static float EvaluateSimpleNoise(float3 point, SimpleNoiseSettings settings)
+    {
         float noiseValue = 0;
         float frequency = settings.baseRoughness;
         float amplitude = 1;
@@ -27,6 +38,31 @@ public static class PlanetOceanJobs
 
         noiseValue = math.max(0, noiseValue - settings.minValue);
         return noiseValue * settings.strength;
+
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static float EvaluateRigidNoise(float3 point, SimpleNoiseSettings settings)
+    {
+        float noiseValue = 0;
+        float frequency = settings.baseRoughness;
+        float amplitude = 1;
+        float weight = 1;
+        for (int i = 0; i < settings.numLayers; i++)
+        {
+            float v = 1 - math.abs(noise.snoise(point * frequency + settings.center));
+            v *= v;
+            v *= weight;
+            //weight = v;
+            weight = Mathf.Clamp01(v * settings.weightMultiplier);
+            noiseValue += v * amplitude;
+            frequency *= settings.roughness;
+            amplitude *= settings.persistence;
+        }
+
+        noiseValue -= settings.minValue;
+        return noiseValue * settings.strength;
+
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -71,6 +107,12 @@ public static class PlanetOceanJobs
         return elevation;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static float GetScaledElevation(float unscaledElevation, float radius)
+    {
+        unscaledElevation = radius * (1 + unscaledElevation);
+        return unscaledElevation;
+    }
 
     // --- Grid Navigator Logic (Baked into Static Function) ---
     // Maps the 16 cases to lists of actions (Triangulation)
@@ -189,6 +231,7 @@ public static class PlanetOceanJobs
     public struct OceanMeshBuilderJob : IJob
     {
         public int resolution;
+        public float planetRadius;
 
         [ReadOnly] public NativeArray<OceanPointData> pointData;
 
@@ -198,6 +241,19 @@ public static class PlanetOceanJobs
 
         public void Execute()
         {
+            // Map: GridIndex -> MeshVertexIndex (for existing corners)
+            NativeArray<int> cornerVertexMap = new NativeArray<int>(pointData.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+
+            // Map: EdgeKey -> MeshVertexIndex (for interpolated edge vertices)
+            // Key = Unique ID for an edge.
+            // Horizontal Edge (x,y)-(x+1,y): ID = y * res + x
+            // Vertical Edge (x,y)-(x,y+1): ID = (res*res) + y*res + x
+            // To be safe, we use int2 as key: (smallerIndex, largerIndex)
+            NativeParallelHashMap<int2, int> edgeVertexMap = new NativeParallelHashMap<int2, int>(pointData.Length, Allocator.Temp);
+
+            // Initialize map with -1
+            for (int i = 0; i < cornerVertexMap.Length; i++) cornerVertexMap[i] = -1;
+
             NativeList<CellAction> instructions = new NativeList<CellAction>(20, Allocator.Temp);
 
             // 1. Generate Vertices and UVs
@@ -207,7 +263,7 @@ public static class PlanetOceanJobs
                 // Calculate simple UVs based on grid position
                 int y = i / resolution;
                 int x = i % resolution;
-                if (x == resolution - 1 || y == resolution - 1){
+                if (x == resolution - 1 || y == resolution - 1) {
                     continue;
                 }
                 // Corner Indices
@@ -222,38 +278,105 @@ public static class PlanetOceanJobs
                 bool b3 = pointData[c3].isOcean;
 
                 // Optimization: Skip if all land
-                if (!b0 && !b1 && !b2 && !b3) continue;
 
                 // Calculate Contour Case (Bitmask)
                 // Original: a*8 + b*4 + c*2 + d*1 -> 0(TL), 1(TR), 2(BR), 3(BL)
                 int contour = (b0 ? 8 : 0) + (b1 ? 4 : 0) + (b2 ? 2 : 0) + (b3 ? 1 : 0);
 
-                if (contour != 15) continue;
 
                 GetCellInstructions(contour, ref instructions);
                 for (int k = 0; k < instructions.Length; k++)
                 {
                     CellAction action = instructions[k];
+                    int vertIndex;
 
-                    int gridIndex = 0;
-                    switch (action.idxA)
+                    if (action.type == 0) // Existing Corner
                     {
-                        case 0: gridIndex = c0; break;
-                        case 1: gridIndex = c1; break;
-                        case 2: gridIndex = c2; break;
-                        case 3: gridIndex = c3; break;
+                        int gridIndex = 0;
+                        switch (action.idxA)
+                        {
+                            case 0: gridIndex = c0; break;
+                            case 1: gridIndex = c1; break;
+                            case 2: gridIndex = c2; break;
+                            case 3: gridIndex = c3; break;
+                        }
+                        vertIndex = GetOrAddCorner(gridIndex, ref cornerVertexMap, x, y);
+                    }
+                    else // Interpolated Edge
+                    {
+                        int gA = 0, gB = 0;
+                        // Map local 0..3 to global indices
+                        switch (action.idxA) { case 0: gA = c0; break; case 1: gA = c1; break; case 2: gA = c2; break; case 3: gA = c3; break; }
+                        switch (action.idxB) { case 0: gB = c0; break; case 1: gB = c1; break; case 2: gB = c2; break; case 3: gB = c3; break; }
+
+                        vertIndex = GetOrAddEdge(gA, gB, ref edgeVertexMap, x, y);
                     }
 
-                    OceanPointData p = pointData[gridIndex];
-
-                    // Corner is simply the world pos
-                    vertices.Add(p.worldPos);
-                    uvs.Add(new float2(x / (float)(resolution - 1), y / (float)(resolution - 1)));
-                    triangles.Add(vertices.Length - 1);
+                    triangles.Add(vertIndex);
                 }
 
             }
+            cornerVertexMap.Dispose();
+            edgeVertexMap.Dispose();
             instructions.Dispose();
+        }
+
+        private int GetOrAddCorner(int gridIndex, ref NativeArray<int> map, int x, int y)
+        {
+            if (map[gridIndex] != -1) return map[gridIndex];
+
+            // Add new vertex
+            OceanPointData p = pointData[gridIndex];
+
+            // Corner is simply the world pos
+            vertices.Add(p.worldPos);
+            uvs.Add(GetUV(x,y)); // Simple UV
+
+            int newIndex = vertices.Length - 1;
+            map[gridIndex] = newIndex;
+            return newIndex;
+        }
+
+        private int GetOrAddEdge(int indexA, int indexB, ref NativeParallelHashMap<int2, int> map, int x, int y)
+        {
+            // Create a unique key for this edge (order independent)
+            int min = math.min(indexA, indexB);
+            int max = math.max(indexA, indexB);
+            int2 key = new int2(min, max);
+
+            if (map.TryGetValue(key, out int existingIndex))
+            {
+                return existingIndex;
+            }
+
+            // Calculate Interpolated Position
+            OceanPointData pA = pointData[indexA];
+            OceanPointData pB = pointData[indexB];
+
+            // Logic: LerpCloseToOne
+            // a = dist + 1, b = dist + 1. Target is 1.
+            float valA = pA.distToOcean + 1f;
+            float valB = pB.distToOcean + 1f;
+            float t = (1f - valA) / (valB - valA);
+
+            // Interpolate directly on Unit Sphere to maintain curvature, then scale
+            float3 spherePosA = math.normalize(pA.worldPos);
+            float3 spherePosB = math.normalize(pB.worldPos);
+            float3 finalSpherePos = math.normalize(math.lerp(spherePosA, spherePosB, t));
+
+            float3 finalPos = finalSpherePos * planetRadius;
+
+            vertices.Add(finalPos);
+            uvs.Add(GetUV(x, y));
+
+            int newIndex = vertices.Length - 1;
+            map.Add(key, newIndex);
+            return newIndex;
+        }
+
+        float2 GetUV(int x, int y)
+        {
+            return new float2(x / (float)(resolution - 1), y / (float)(resolution - 1));
         }
     }
 
