@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67f11cc6a205492459cc0a94b730081b, type: 3}
+  m_Name: Shape 1
+  m_EditorClassIdentifier: 
+  planetRadius: 6
+  sizeMult: 0.36
+  noiseLayers:
+  - enabled: 1
+    useFirstLayerAsMask: 0
+    noiseSettings:
+      filterType: 0
+      simpleNoiseSettings:
+        strength: 0.12
+        numLayers: 3
+        baseRoughness: 2.56
+        roughness: 0.41
+        persistence: 0.01
+        centre: {x: 0.91, y: 0, z: 0}
+        minValue: 0.5
+        density: 0
+      rigidNoiseSettings:
+        strength: 1
+        numLayers: 1
+        baseRoughness: 1
+        roughness: 2
+        persistence: 0.5
+        centre: {x: 0, y: 0, z: 0}
+        minValue: 0
+        density: 0
+        weightMultiplier: 0.8
+  - enabled: 1
+    useFirstLayerAsMask: 1
+    noiseSettings:
+      filterType: 1
+      simpleNoiseSettings:
+        strength: 1
+        numLayers: 1
+        baseRoughness: 1
+        roughness: 2
+        persistence: 0.5
+        centre: {x: 0, y: 0, z: 0}
+        minValue: 0
+        density: 0
+      rigidNoiseSettings:
+        strength: 0.2
+        numLayers: 3
+        baseRoughness: 1.84
+        roughness: 2
+        persistence: 6.11
+        centre: {x: 0, y: 0.15, z: 0}
+        minValue: 2.97
+        density: 0
+        weightMultiplier: 0.88
+  - enabled: 1
+    useFirstLayerAsMask: 0
+    noiseSettings:
+      filterType: 0
+      simpleNoiseSettings:
+        strength: 0.04
+        numLayers: 3
+        baseRoughness: 3.3
+        roughness: 0.1
+        persistence: 0
+        centre: {x: 1.16, y: 3.29, z: 0}
+        minValue: 0.28
+        density: 0
+      rigidNoiseSettings:
+        strength: 0.56
+        numLayers: 3
+        baseRoughness: 0.63
+        roughness: 4.08
+        persistence: 3.65
+        centre: {x: 0, y: 0.15, z: 0}
+        minValue: 1.64
+        density: 0
+        weightMultiplier: 0.88

@@ -39,7 +39,6 @@ public struct OceanPointData
     public float distToOcean;
     public bool isOcean;
 }
-
 // Represents an instruction from the GridNavigator lookup
 // Type 0 = Use existing Corner (0=TL, 1=TR, 2=BR, 3=BL)
 // Type 1 = Create Vertex on Edge between CornerA and CornerB

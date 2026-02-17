@@ -34,28 +34,37 @@ public class BurstOceanGenerator : MonoBehaviour
         int numFaces = 6;
         int numPoints = resolution * resolution;
 
+        // We need a list of handles to wait for at the end
         NativeArray<JobHandle> handles = new NativeArray<JobHandle>(numFaces, Allocator.Temp);
 
-        // Buffers per face
+        // Arrays to hold the data per face
         var allPointData = new NativeArray<OceanPointData>[numFaces];
         var allVertices = new NativeList<float3>[numFaces];
         var allTriangles = new NativeList<int>[numFaces];
         var allUVs = new NativeList<float2>[numFaces];
-        ShapeData shapeData = new ShapeData { planetRadius = settings.planetRadius, sizeMult = settings.sizeMult };
 
-        // 1. Schedule Data Jobs (Parallel)
-        JobHandle allDataJobsHandle = default;
+        ShapeData shapeData = new ShapeData { planetRadius = settings.planetRadius, sizeMult = settings.sizeMult };
 
         for (int i = 0; i < numFaces; i++)
         {
-            if (!oceanFilters[i].gameObject.activeSelf) continue;
+            if (!oceanFilters[i].gameObject.activeSelf)
+            {
+                handles[i] = default; // Mark unused handles as completed/default
+                continue;
+            }
 
             Vector3 localUp = directions[i];
             Vector3 axisA = new Vector3(localUp.y, localUp.z, localUp.x);
             Vector3 axisB = Vector3.Cross(localUp, axisA);
 
+            // --- ALLOCATE MEMORY ---
             allPointData[i] = new NativeArray<OceanPointData>(numPoints, Allocator.TempJob);
+            // FIX: Initialize these lists!
+            allVertices[i] = new NativeList<float3>(numPoints, Allocator.TempJob);
+            allTriangles[i] = new NativeList<int>(numPoints * 6, Allocator.TempJob);
+            allUVs[i] = new NativeList<float2>(numPoints, Allocator.TempJob);
 
+            // --- JOB 1: CALCULATE DATA ---
             var dataJob = new PlanetOceanJobs.OceanDataJob
             {
                 resolution = resolution,
@@ -68,71 +77,47 @@ public class BurstOceanGenerator : MonoBehaviour
                 result = allPointData[i]
             };
 
-            // Schedule all data jobs in parallel (no dependency between them)
-            handles[i] = dataJob.Schedule(numPoints, 64);
-        }
+            JobHandle dataHandle = dataJob.Schedule(numPoints, 64);
 
-        // Combine all handles into one
-        allDataJobsHandle = JobHandle.CombineDependencies(handles);
-        allDataJobsHandle.Complete();
-
-        // 2. Schedule Topology Jobs (Single Threaded Burst per face)
-        // We run these after data is complete. 
-        // We could chain dependencies, but manual loops are clearer for array management here.
-
-        for (int i = 0; i < numFaces; i++)
-        {
-            if (!allPointData[i].IsCreated) continue;
-
-            allVertices[i] = new NativeList<float3>(numPoints, Allocator.TempJob);
-            allTriangles[i] = new NativeList<int>(numPoints * 6, Allocator.TempJob);
-            allUVs[i] = new NativeList<float2>(numPoints, Allocator.TempJob);
-
-            Vector3 localUp = directions[i];
-            Vector3 axisA = new Vector3(localUp.y, localUp.z, localUp.x);
-            Vector3 axisB = Vector3.Cross(localUp, axisA);
-
-            var topoJob = new PlanetOceanJobs.OceanTopologyJob
+            // --- JOB 2: BUILD MESH ---
+            // Dependent on dataHandle finishing
+            var meshJob = new PlanetOceanJobs.OceanMeshBuilderJob
             {
                 resolution = resolution,
-                planetRadius = settings.planetRadius,
-                localUp = localUp,
-                axisA = axisA,
-                axisB = axisB,
                 pointData = allPointData[i],
-                outVertices = allVertices[i],
-                outTriangles = allTriangles[i],
-                outUVs = allUVs[i]
+                vertices = allVertices[i],
+                triangles = allTriangles[i],
+                uvs = allUVs[i]
             };
 
-            handles[i] = topoJob.Schedule();
+            // Schedule single-threaded mesh build, dependent on the calculation
+            handles[i] = meshJob.Schedule(dataHandle);
         }
 
+        // Wait for all faces to finish
         JobHandle.CompleteAll(handles);
 
-        // 3. Apply to Meshes
+        // --- APPLY TO UNITY MESHES ---
         for (int i = 0; i < numFaces; i++)
         {
-            if (!allVertices[i].IsCreated) continue;
+            // FIX: Check if the list was actually allocated (activeSelf check)
+            if (allVertices[i].IsCreated == false) continue;
 
             Mesh mesh = oceanFilters[i].sharedMesh;
             if (mesh == null) mesh = new Mesh();
             mesh.Clear();
 
-            // NativeList can be cast to Array/Slice for SetVertices
-
+            // Set data (using AsArray to view NativeList as an array)
             mesh.SetVertices(allVertices[i].AsArray());
-            mesh.SetIndices(
-                allTriangles[i].AsArray(),
-                MeshTopology.Triangles,
-                0
-            );
+            mesh.SetIndices(allTriangles[i].AsArray(), MeshTopology.Triangles, 0);
             mesh.SetUVs(0, allUVs[i].AsArray());
 
             mesh.RecalculateNormals();
+            // Optional: mesh.RecalculateBounds();
+
             oceanFilters[i].sharedMesh = mesh;
 
-            // Dispose
+            // --- CLEANUP ---
             allPointData[i].Dispose();
             allVertices[i].Dispose();
             allTriangles[i].Dispose();
