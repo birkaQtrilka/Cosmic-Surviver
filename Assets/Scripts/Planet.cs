@@ -2,8 +2,13 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+public abstract class Generator : MonoBehaviour 
+{
+    public abstract void GeneratePlanet();
+}
+
 [SelectionBase, ExecuteAlways]
-public class Planet : MonoBehaviour
+public class Planet : Generator
 {
     public static List<Planet> ActivePlanets = new();
 
@@ -271,7 +276,7 @@ existingFilter.transform.localPosition = Vector3.zero;
         colorGenerator.UpdateColors();
     }
 
-    public void GeneratePlanet()
+    public override void GeneratePlanet()
     {
 
         Initialize();

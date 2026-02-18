@@ -15,7 +15,7 @@ public struct RunData
 
 public class PlanetBenchmark : MonoBehaviour
 {
-    public Planet planetGenerator;
+    public Generator planetGenerator;
     public bool showDebug;
     public int iterations = 10;
 

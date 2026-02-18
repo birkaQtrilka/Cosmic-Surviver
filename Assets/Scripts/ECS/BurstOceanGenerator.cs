@@ -5,7 +5,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-public class BurstOceanGenerator : MonoBehaviour
+public class BurstOceanGenerator : Generator
 {
     public ShapeSettings shapeSettings;
     public ColorSettings colorSettings;
@@ -32,8 +32,8 @@ public class BurstOceanGenerator : MonoBehaviour
         if (_biomeData.startHeights.IsCreated) _biomeData.startHeights.Dispose();
     }
 
-    [ContextMenu("Generate Ocean")]
-    public void GenerateOcean()
+    [ContextMenu("Generate")]
+    public override void GeneratePlanet()
     {
         shapeGenerator.UpdateSettings(shapeSettings);
         colorGenerator.UpdateSettings(colorSettings);
@@ -168,7 +168,7 @@ public class BurstOceanGenerator : MonoBehaviour
         edgeCellTriangles.Dispose();
         allHandles.Dispose();
 
-        ApplyToMesh(combinedVertices, combinedTriangles, combinedUvs, oceanMeshFilter);
+        ApplyToMesh(combinedVertices, combinedTriangles, combinedUvs, oceanMeshFilter, true);
 
         combinedVertices.Dispose();
         combinedTriangles.Dispose();
@@ -253,11 +253,12 @@ public class BurstOceanGenerator : MonoBehaviour
         }
     }
 
-    void ApplyToMesh(NativeArray<float3> vertices, NativeArray<int> triangles, NativeArray<float2> uvs, MeshFilter filter)
+    void ApplyToMesh(NativeArray<float3> vertices, NativeArray<int> triangles, NativeArray<float2> uvs, MeshFilter filter, bool bigMesh = false)
     {
         Mesh mesh = filter.sharedMesh;
         if (mesh == null) mesh = new Mesh();
         mesh.Clear();
+        if(bigMesh) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
 
         mesh.SetVertices(vertices);
         mesh.SetIndices(triangles, MeshTopology.Triangles, 0);

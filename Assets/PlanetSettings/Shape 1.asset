@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Shape 1
   m_EditorClassIdentifier: 
   planetRadius: 6
-  sizeMult: 0.36
+  sizeMult: 1
   noiseLayers:
   - enabled: 1
     useFirstLayerAsMask: 0
