@@ -5,6 +5,7 @@ using UnityEngine.Rendering;
 
 public class MeshWelder
 {
+
     public static bool EnableDebug;
     readonly static List<Vector3> _weldedVertices = new();
     public static List<Vector3> WeldedVertices => _weldedVertices;
@@ -160,4 +161,8 @@ public class MeshWelder
     {
         _weldedVertices.Clear();
     }
+
+    // needed data:
+    // triangles.count
+    // EdgeCellTriangles[,]
 }

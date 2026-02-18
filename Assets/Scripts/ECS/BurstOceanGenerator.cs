@@ -14,27 +14,31 @@ public class BurstOceanGenerator : MonoBehaviour
     public float oceanLevel = 0f;
 
     private NativeArray<NoiseLayerData> _noiseLayers;
+    private BiomeData _biomeData;
     readonly Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
     readonly ShapeGenerator shapeGenerator = new();
     readonly ColorGenerator colorGenerator = new();
-
-    void OnValidate()
-    {
-        if (Application.isPlaying) GenerateOcean();
-    }
 
     void OnDestroy()
     {
         if (_noiseLayers.IsCreated) _noiseLayers.Dispose();
     }
 
+    private void OnDisable()
+    {
+        if (_noiseLayers.IsCreated) _noiseLayers.Dispose();
+
+        if (_biomeData.startHeights.IsCreated) _biomeData.startHeights.Dispose();
+    }
+
     [ContextMenu("Generate Ocean")]
     public void GenerateOcean()
     {
-        Initialize();
-        UpdateNoiseLayerData();
         shapeGenerator.UpdateSettings(shapeSettings);
         colorGenerator.UpdateSettings(colorSettings);
+        Initialize();
+        UpdateNoiseLayerData();
+        UpdateColorSettings();
 
         int numFaces = 6;
         int numPoints = resolution * resolution;
@@ -71,56 +75,55 @@ public class BurstOceanGenerator : MonoBehaviour
                     axisB = axisB,
                     shapeData = shapeData,
                     noiseLayers = _noiseLayers,
+                    biomeData = _biomeData,
 
                     triangles = terrainTriangles[i],
                     vertices = terrainVerts[i],
                     uvs = terrainUVs[i],
                 };
+
+                // update uvs
                 allHandles.Add(terrainJob.Schedule());
             }
+            // OCEAN
+            oceanPointData[i] = new NativeArray<OceanPointData>(numPoints, Allocator.TempJob);
+            oceanVerts[i] = new NativeList<float3>(numPoints, Allocator.TempJob);
+            oceanTriangles[i] = new NativeList<int>(numPoints * 6, Allocator.TempJob);
+            oceanUVs[i] = new NativeList<float2>(numPoints, Allocator.TempJob);
 
-            if (terrainFilters[i].gameObject.activeSelf)
+            var oceanDataJob = new PlanetOceanJobs.OceanDataJob
             {
-                oceanPointData[i] = new NativeArray<OceanPointData>(numPoints, Allocator.TempJob);
-                oceanVerts[i] = new NativeList<float3>(numPoints, Allocator.TempJob);
-                oceanTriangles[i] = new NativeList<int>(numPoints * 6, Allocator.TempJob);
-                oceanUVs[i] = new NativeList<float2>(numPoints, Allocator.TempJob);
-
-                var oceanDataJob = new PlanetOceanJobs.OceanDataJob
-                {
-                    resolution = resolution,
-                    localUp = localUp,
-                    axisA = axisA,
-                    axisB = axisB,
-                    shapeData = shapeData,
-                    noiseLayers = _noiseLayers,
-                    oceanLevel = oceanLevel,
-                    result = oceanPointData[i]
-                };
+                resolution = resolution,
+                localUp = localUp,
+                axisA = axisA,
+                axisB = axisB,
+                shapeData = shapeData,
+                noiseLayers = _noiseLayers,
+                oceanLevel = oceanLevel,
+                result = oceanPointData[i]
+            };
 
 
-                JobHandle dataHandle = oceanDataJob.Schedule(numPoints, 64);
+            JobHandle dataHandle = oceanDataJob.Schedule(numPoints, 64);
 
-                // --- JOB 2: BUILD MESH ---
-                var meshJob = new PlanetOceanJobs.OceanMeshBuilderJob
-                {
-                    resolution = resolution,
-                    planetRadius = shapeData.planetRadius,
-                    pointData = oceanPointData[i],
-                    vertices = oceanVerts[i],
-                    triangles = oceanTriangles[i],
-                    uvs = oceanUVs[i]
-                };
-                JobHandle meshHandle = meshJob.Schedule(dataHandle);
-                allHandles.Add(meshHandle);
-            }
+            // --- JOB 2: BUILD MESH ---
+            var meshJob = new PlanetOceanJobs.OceanMeshBuilderJob
+            {
+                resolution = resolution,
+                planetRadius = shapeData.planetRadius,
+                pointData = oceanPointData[i],
+                vertices = oceanVerts[i],
+                triangles = oceanTriangles[i],
+                uvs = oceanUVs[i]
+            };
+            JobHandle meshHandle = meshJob.Schedule(dataHandle);
+            allHandles.Add(meshHandle);
             
 
         }
 
         // Wait for all faces to finish
         JobHandle.CompleteAll(allHandles.AsArray());
-        allHandles.Dispose();
 
         for (int i = 0; i < numFaces; i++)
         {
@@ -141,7 +144,26 @@ public class BurstOceanGenerator : MonoBehaviour
             oceanUVs[i].Dispose();
             oceanPointData[i].Dispose();
         }
+        // change this to my own mesh combination?
 
+
+        allHandles.Dispose();
+    }
+
+    NativeArray<T> ConcatArray<T>(NativeArray<T>[] arrays) where T : struct
+    {
+        int totalLength = 0;
+        for (int i = 0; i < arrays.Length; i++)
+            totalLength += arrays[i].Length;
+        NativeArray<T> combined = new NativeArray<T>(totalLength, Allocator.TempJob);
+        int offset = 0;
+
+        for (int i = 0; i < arrays.Length; i++)
+        {
+            NativeArray<T>.Copy(arrays[i], 0, combined, offset, arrays[i].Length);
+            offset += arrays[i].Length;
+        }
+        return combined;
     }
 
     void Initialize()
@@ -207,6 +229,37 @@ public class BurstOceanGenerator : MonoBehaviour
         }
     }
 
+    void UpdateColorSettings()
+    {
+        if(_biomeData.startHeights.IsCreated) _biomeData.startHeights.Dispose();
+        if (colorSettings == null) return;
+        ColorSettings.BiomeColorSettings s = colorSettings.biomeColorSettings;
+        _biomeData.startHeights = new NativeArray<float>(s.biomes.Length, Allocator.Persistent);
+        for (int i = 0; i < s.biomes.Length; i++)
+        {
+            _biomeData.startHeights[i] = s.biomes[i].startHeight;
+        }
+        var simpleSettings = s.noise.filterType == NoiseSettings.FilterType.Rigid ? s.noise.rigidNoiseSettings : s.noise.simpleNoiseSettings;
+
+        _biomeData.noiseData = new SimpleNoiseSettings
+        {
+            strength = simpleSettings.strength,
+            baseRoughness = simpleSettings.baseRoughness,
+            roughness = simpleSettings.roughness,
+            persistence = simpleSettings.persistence,
+            center = simpleSettings.centre,
+            minValue = simpleSettings.minValue,
+            numLayers = simpleSettings.numLayers,
+
+            isRigid = s.noise.filterType == NoiseSettings.FilterType.Rigid,
+            weightMultiplier = s.noise.rigidNoiseSettings.weightMultiplier,
+        };
+
+        _biomeData.noiseOffset = s.noiseOffset;
+        _biomeData.noiseStrength = s.noiseStrength;
+        _biomeData.blendAmount = s.blendAmount;
+    }
+
     MeshFilter SetupMeshObject(MeshFilter existingFilter, string objName, Material material, bool hasCollider)
     {
         MeshCollider meshCollider = null;
@@ -237,4 +290,6 @@ public class BurstOceanGenerator : MonoBehaviour
 #endif
         return existingFilter;
     }
+
+    
 }

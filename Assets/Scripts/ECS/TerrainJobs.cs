@@ -17,7 +17,7 @@ public static class PlanetTerrainJobs
         [ReadOnly] public float3 axisB;
         [ReadOnly] public ShapeData shapeData;
         [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<NoiseLayerData> noiseLayers;
-
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public BiomeData biomeData;
 
         public NativeArray<float3> vertices;
         public NativeArray<int> triangles;
@@ -35,6 +35,25 @@ public static class PlanetTerrainJobs
                 minMax.x = v;
             if (v > minMax.y)
                 minMax.y = v;
+        }
+
+        public float BiomePercentFromPoint(float3 pointOnSphere)
+        {
+            float heightPersent = (pointOnSphere.y + 1) / 2f;
+            heightPersent += (PlanetOceanJobs.EvaluateNoise(pointOnSphere, biomeData.noiseData) - biomeData.noiseOffset) * biomeData.noiseStrength;
+            float biomeIndex = 0;
+            int numBiomes = biomeData.startHeights.Length;
+            float blendRange = biomeData.blendAmount / 2 + .001f;
+
+            for (int i = 0; i < numBiomes; i++)
+            {
+                float dist = heightPersent - biomeData.startHeights[i];
+                float weight = math.unlerp(-blendRange, blendRange, dist);
+                biomeIndex *= (1 - weight);
+                biomeIndex += i * weight;
+
+            }
+            return biomeIndex / math.max(1, (numBiomes - 1));
         }
 
         public void Execute()
@@ -58,8 +77,7 @@ public static class PlanetTerrainJobs
 
                     float3 vertex = scaledElevation * point;
                     vertices[i] = vertex;
-
-                    uvs[i] = new float2(0, elevation);
+                    uvs[i] = new float2(BiomePercentFromPoint(point), elevation);
 
                     if (x == resolution - 1 || y == resolution - 1) continue;
 

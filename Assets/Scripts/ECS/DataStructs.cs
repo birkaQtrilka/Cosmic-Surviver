@@ -1,9 +1,5 @@
-using System.Runtime.CompilerServices;
-using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
 
 [System.Serializable]
 public struct SimpleNoiseSettings
@@ -18,6 +14,27 @@ public struct SimpleNoiseSettings
     // a valid value means that is a RigidNoiseSettings
     public bool isRigid;
     public float weightMultiplier;
+}
+
+public struct BiomeData
+{
+    public SimpleNoiseSettings noiseData;
+    public float noiseOffset;
+    public float noiseStrength;
+    public float blendAmount;
+    public NativeArray<float> startHeights;
+}
+
+public struct WeldData
+{
+    public int triangleStart;
+    // 2d array. to get position
+    public NativeArray<NativeList<int>> edgeCellTriangles;
+
+    public static NativeList<int> GetCell(int x, int y,   NativeArray<NativeList<int>> flattenedGridArray, int resolution)
+    {
+        return flattenedGridArray[y * resolution + x];
+    }
 }
 
 [System.Serializable]
