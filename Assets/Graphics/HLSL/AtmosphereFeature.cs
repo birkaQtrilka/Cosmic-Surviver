@@ -64,13 +64,13 @@ public class AtmosphereFeature : ScriptableRendererFeature
 
         private void GatherPlanetData()
         {
-            List<Planet> planets = Planet.ActivePlanets;
+            List<PlanetAtmosphere> planets = PlanetAtmosphere.ActiveAtmospheres;
 
             planetCount = 0;
             if (planets == null) return;
             for (int i = 0; i < planets.Count; i++)
             {
-                Planet planet = planets[i];
+                PlanetAtmosphere planet = planets[i];
                 if (planet == null) continue;
                 if (planet.isLightSource) lightSourcePos = planet.transform.position;
                 if (planet.atmosphereSettings == null) continue;

@@ -2,15 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class Generator : MonoBehaviour 
-{
-    public abstract void GeneratePlanet();
-}
-
 [SelectionBase, ExecuteAlways]
 public class Planet : Generator
 {
-    public static List<Planet> ActivePlanets = new();
 
     private const string CombinedOceanName = "Combined Ocean";
     private const string TerrainMeshName = "terrainMesh";
@@ -26,15 +20,12 @@ public class Planet : Generator
 
     public ShapeSettings shapeSettings;
     public ColorSettings colorSettings;
-    public AtmosphereSettings atmosphereSettings;
-    public bool isLightSource;
 
     public bool HasOceanMesh = true;
     public bool autoSaveTexture = true;
 
     [HideInInspector] public bool shapeSettingsFoldout;
     [HideInInspector] public bool colourSettingsFoldout;
-    [HideInInspector] public bool atmosphereSettingsFoldout;
 
     readonly ShapeGenerator shapeGenerator = new();
     readonly ColorGenerator colorGenerator = new();
@@ -53,31 +44,6 @@ public class Planet : Generator
     public TerrainFace[] TerrainFaces => terrainFaces;
     public OceanFace[] OceanFaces => oceanFaces;
     public ShapeGenerator ShapeGenerator => shapeGenerator;
-
-    [SerializeField] bool _toggleAtmosphere;
-
-    [SerializeField, ReadOnly] bool _atmosphereActive = true;
-
-    private void OnValidate()
-    {
-        if (_toggleAtmosphere)
-        {
-            _toggleAtmosphere = false;
-            _atmosphereActive = !_atmosphereActive;
-            if (_atmosphereActive && !ActivePlanets.Contains(this)) ActivePlanets.Add(this);
-            else if (!_atmosphereActive) ActivePlanets.Remove(this);
-
-#if UNITY_EDITOR
-            // Queue a player loop update (Game View)
-            if (!Application.isPlaying)
-            {
-                UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
-                // Force Scene View repaint
-                UnityEditor.SceneView.RepaintAll();
-            }
-#endif
-        }
-    }
 
     public void SaveColorTexture() => colorGenerator.SaveTexture();
 
@@ -201,7 +167,7 @@ existingFilter.transform.localPosition = Vector3.zero;
             for (int i = 0; i < 6; i++)
             {
                 if (!terrainMeshFilters[i].gameObject.activeSelf) continue;
-                Mesh mesh = oceanMeshFilters[i].sharedMesh;
+                Mesh mesh = terrainMeshFilters[i].sharedMesh;
                 mesh.Clear();
                 MeshData data = terrainFaces[i].ConstructMesh();
                 mesh.vertices = data.vertices;
@@ -301,18 +267,5 @@ existingFilter.transform.localPosition = Vector3.zero;
         if (!autoUpdate) return;
         Initialize();
         GenerateColours();
-    }
-
-    private void OnEnable()
-    {
-        if (!ActivePlanets.Contains(this))
-        {
-            ActivePlanets.Add(this);
-        }
-    }
-
-    private void OnDisable()
-    {
-        ActivePlanets.Remove(this);
     }
 }

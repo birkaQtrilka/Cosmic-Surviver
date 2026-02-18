@@ -8,7 +8,6 @@ public class PlanetEditor : Editor
     Planet planet;
     Editor shapeEditor;
     Editor colourEditor;
-    Editor atmosphereEditor;
 
     public override void OnInspectorGUI()
     {
@@ -66,12 +65,11 @@ public class PlanetEditor : Editor
         {
             planet.SetActiveOceanMesh(!planet.IsActiveOceanMesh);
         }
-        DrawSettingsEditor(planet.atmosphereSettings, null, ref planet.atmosphereSettingsFoldout, ref atmosphereEditor);
         DrawSettingsEditor(planet.shapeSettings, planet.OnShapeSettingsUpdate, ref planet.shapeSettingsFoldout, ref shapeEditor);
         DrawSettingsEditor(planet.colorSettings, planet.OnColourSettingsUpdated,ref planet.colourSettingsFoldout, ref colourEditor);
     }
 
-    void DrawSettingsEditor(Object settings, System.Action onSettingsUpdated,ref bool foldout,ref Editor editor)
+    public static void DrawSettingsEditor(Object settings, System.Action onSettingsUpdated,ref bool foldout,ref Editor editor)
     {
         if (settings == null) return;
         foldout=EditorGUILayout.InspectorTitlebar(foldout, settings);

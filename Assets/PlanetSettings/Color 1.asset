@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Color 1
   m_EditorClassIdentifier: 
   planetMat: {fileID: 2100000, guid: 150479bfa8d28f7459b8fd3af7ab5f9c, type: 2}
-  oceanMat: {fileID: 2100000, guid: eebadfd52e6c8564785b023e5f40da23, type: 2}
+  oceanMat: {fileID: 2100000, guid: 71ef290251c585c4e9c7f4b1497f77ba, type: 2}
   biomeColorSettings:
     biomes:
     - name: arctic

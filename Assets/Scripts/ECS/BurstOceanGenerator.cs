@@ -35,6 +35,8 @@ public class BurstOceanGenerator : Generator
     [ContextMenu("Generate")]
     public override void GeneratePlanet()
     {
+        Vector3 startPos = transform.position;
+        transform.position = Vector3.zero;
         shapeGenerator.UpdateSettings(shapeSettings);
         colorGenerator.UpdateSettings(colorSettings);
         Initialize();
@@ -175,6 +177,8 @@ public class BurstOceanGenerator : Generator
         combinedUvs.Dispose();
         triangleOffsets.Dispose();
         vertexCounts.Dispose();
+        transform.position = startPos;
+
     }
     // can make this a job
 
