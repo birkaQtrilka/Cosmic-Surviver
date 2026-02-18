@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -8,8 +9,8 @@ public class BurstOceanGenerator : MonoBehaviour
 {
     public ShapeSettings shapeSettings;
     public ColorSettings colorSettings;
-    public MeshFilter[] oceanFilters; // Assign the 6 mesh filters
     public MeshFilter[] terrainFilters; // Assign the 6 mesh filters
+    public MeshFilter oceanMeshFilter;
     public int resolution = 32;
     public float oceanLevel = 0f;
 
@@ -52,6 +53,9 @@ public class BurstOceanGenerator : MonoBehaviour
         var oceanVerts = new NativeList<float3>[numFaces];
         var oceanTriangles = new NativeList<int>[numFaces];
         var oceanUVs = new NativeList<float2>[numFaces];
+        var edgeCellTriangles = new NativeArray<FixedList128Bytes<int>>(numFaces * (resolution - 1) * 4, Allocator.TempJob);
+        var vertexCounts = new NativeArray<int>(numFaces, Allocator.Temp);
+
         var terrainVerts = new NativeArray<float3>[numFaces];
         var terrainTriangles = new NativeArray<int>[numFaces];
         var terrainUVs = new NativeArray<float2>[numFaces];
@@ -110,16 +114,19 @@ public class BurstOceanGenerator : MonoBehaviour
             var meshJob = new PlanetOceanJobs.OceanMeshBuilderJob
             {
                 resolution = resolution,
+                faceIndex = i,
                 planetRadius = shapeData.planetRadius,
                 pointData = oceanPointData[i],
+                
                 vertices = oceanVerts[i],
                 triangles = oceanTriangles[i],
-                uvs = oceanUVs[i]
+                uvs = oceanUVs[i],
+
+                edgeCellTriangles = edgeCellTriangles
             };
             JobHandle meshHandle = meshJob.Schedule(dataHandle);
             allHandles.Add(meshHandle);
             
-
         }
 
         // Wait for all faces to finish
@@ -129,51 +136,114 @@ public class BurstOceanGenerator : MonoBehaviour
         {
             if (terrainVerts[i].IsCreated)
             {
-                ApplyToMesh(i, terrainVerts[i], terrainTriangles[i], terrainUVs[i], terrainFilters[i]);
+                ApplyToMesh(terrainVerts[i], terrainTriangles[i], terrainUVs[i], terrainFilters[i]);
                 terrainVerts[i].Dispose();
                 terrainTriangles[i].Dispose();
                 terrainUVs[i].Dispose();
                 
             }
 
-            if (!oceanVerts[i].IsCreated) continue;
-            ApplyToMesh(i, oceanVerts[i].AsArray(), oceanTriangles[i].AsArray(), oceanUVs[i].AsArray(), oceanFilters[i]);
-
-            oceanVerts[i].Dispose();
-            oceanTriangles[i].Dispose();
-            oceanUVs[i].Dispose();
+            if (!oceanPointData[i].IsCreated) continue;
             oceanPointData[i].Dispose();
         }
-        // change this to my own mesh combination?
+
+        for (int i = 0; i < numFaces; i++) vertexCounts[i] = oceanVerts[i].Length;
+        (NativeArray<int> triangleOffsets, int totalTriCount) = GetTriangleOffsetsAndTotalTriangleCount(oceanTriangles);
 
 
+        NativeArray<float3> combinedVertices = ConcatAndDisposeLists(oceanVerts, Allocator.TempJob);
+        NativeArray<float2> combinedUvs = ConcatAndDisposeLists(oceanUVs, Allocator.TempJob);
+        NativeArray<int> combinedTriangles = ConcatAndDisposeTriangles(totalTriCount, oceanTriangles, vertexCounts);
+        
+        var meshWeldJob = new MeshWeldJob { 
+            edgeCellTriangles = edgeCellTriangles,
+            resolution = resolution,
+            triangleOffsets = triangleOffsets,
+            triangles = combinedTriangles,
+            vertices = combinedVertices,
+        };
+        JobHandle weldHandle = meshWeldJob.Schedule();
+        weldHandle.Complete();
+
+        edgeCellTriangles.Dispose();
         allHandles.Dispose();
+
+        ApplyToMesh(combinedVertices, combinedTriangles, combinedUvs, oceanMeshFilter);
+
+        combinedVertices.Dispose();
+        combinedTriangles.Dispose();
+        combinedUvs.Dispose();
+        triangleOffsets.Dispose();
+        vertexCounts.Dispose();
+    }
+    // can make this a job
+
+    (NativeArray<int> triangleOffsets, int totalTriCount) GetTriangleOffsetsAndTotalTriangleCount(NativeList<int>[] oceanTriangles)
+    {
+        int numFaces = 6;
+        NativeArray<int> triangleOffsets = new NativeArray<int>(numFaces, Allocator.TempJob);
+        int totalTriCount = 0;
+        int currentTriOffset = 0;
+        for (int i = 0; i < oceanTriangles.Length; i++)
+        {
+            triangleOffsets[i] = currentTriOffset;
+            int len = oceanTriangles[i].Length;
+            currentTriOffset += len;
+            totalTriCount += len;
+        }
+        return (triangleOffsets, totalTriCount);
     }
 
-    NativeArray<T> ConcatArray<T>(NativeArray<T>[] arrays) where T : struct
+    NativeArray<int> ConcatAndDisposeTriangles(int totalTriCount, NativeList<int>[] oceanTriangles, NativeArray<int> vertexCounts)
+    {
+        NativeArray<int> combinedTriangles = new NativeArray<int>(totalTriCount, Allocator.TempJob);
+
+        int writeIndex = 0;
+        int globalVertexOffset = 0;
+        int numFaces = 6;
+        for (int i = 0; i < numFaces; i++)
+        {
+            NativeArray<int> sourceTris = oceanTriangles[i].AsArray();
+            for (int k = 0; k < sourceTris.Length; k++)
+            {
+                // Shift the index to point to the correct spot in combinedVertices
+                combinedTriangles[writeIndex++] = sourceTris[k] + globalVertexOffset;
+            }
+
+            // Prepare offset for next face
+            globalVertexOffset += vertexCounts[i];
+
+            // Dispose the source list
+            oceanTriangles[i].Dispose();
+        }
+        return combinedTriangles;
+    }
+
+    NativeArray<T> ConcatAndDisposeLists<T>(NativeList<T>[] lists, Allocator allocator)
+    where T : unmanaged
     {
         int totalLength = 0;
-        for (int i = 0; i < arrays.Length; i++)
-            totalLength += arrays[i].Length;
-        NativeArray<T> combined = new NativeArray<T>(totalLength, Allocator.TempJob);
+        for (int i = 0; i < lists.Length; i++)
+            totalLength += lists[i].Length;
+
+        NativeArray<T> combined = new NativeArray<T>(totalLength, allocator);
+
         int offset = 0;
 
-        for (int i = 0; i < arrays.Length; i++)
+        for (int i = 0; i < lists.Length; i++)
         {
-            NativeArray<T>.Copy(arrays[i], 0, combined, offset, arrays[i].Length);
-            offset += arrays[i].Length;
+            NativeArray<T>.Copy(lists[i].AsArray(), 0, combined, offset, lists[i].Length);
+            offset += lists[i].Length;
+
+            lists[i].Dispose(); // Dispose OWNER here
         }
+
         return combined;
     }
 
     void Initialize()
     {
-        if (oceanFilters == null || oceanFilters.Length == 0)
-            oceanFilters = new MeshFilter[6];
-        for (int i = 0; i < 6; i++)
-        {
-            oceanFilters[i] = SetupMeshObject(oceanFilters[i], "oceanMesh", colorSettings.oceanMat, false);
-        }
+        oceanMeshFilter = SetupMeshObject(oceanMeshFilter, "oceanMesh", colorSettings.oceanMat, false);
 
         if (terrainFilters == null || terrainFilters.Length == 0)
             terrainFilters = new MeshFilter[6];
@@ -183,7 +253,7 @@ public class BurstOceanGenerator : MonoBehaviour
         }
     }
 
-    void ApplyToMesh(int i, NativeArray<float3> vertices, NativeArray<int> triangles, NativeArray<float2> uvs, MeshFilter filter)
+    void ApplyToMesh(NativeArray<float3> vertices, NativeArray<int> triangles, NativeArray<float2> uvs, MeshFilter filter)
     {
         Mesh mesh = filter.sharedMesh;
         if (mesh == null) mesh = new Mesh();

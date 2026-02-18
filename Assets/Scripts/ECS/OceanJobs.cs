@@ -230,14 +230,16 @@ public static class PlanetOceanJobs
     [BurstCompile]
     public struct OceanMeshBuilderJob : IJob
     {
-        public int resolution;
-        public float planetRadius;
+        [ReadOnly] public int resolution;
+        [ReadOnly] public float planetRadius;
+        [ReadOnly] public int faceIndex;
 
         [ReadOnly] public NativeArray<OceanPointData> pointData;
 
         public NativeList<float3> vertices;
         public NativeList<int> triangles;
         public NativeList<float2> uvs;
+        [NativeDisableContainerSafetyRestriction]  public NativeArray<FixedList128Bytes<int>> edgeCellTriangles;
 
         public void Execute()
         {
@@ -313,12 +315,54 @@ public static class PlanetOceanJobs
                     }
 
                     triangles.Add(vertIndex);
+                    AddTriangleToEdgeCells(x, y, resolution - 2, triangles.Length - 1);
                 }
 
             }
             cornerVertexMap.Dispose();
             edgeVertexMap.Dispose();
             instructions.Dispose();
+        }
+
+        void AddTriangleToEdgeCells(int x, int y, int lastCellIndex, int triangleIndex)
+        {
+            // Side 0: Top Edge
+            if (y == 0)
+            {
+                AddToEdgeCell(0, x, triangleIndex);
+            }
+
+            // Side 1: Right Edge
+            if (x == lastCellIndex)
+            {
+                AddToEdgeCell(1, y, triangleIndex);
+            }
+
+            // Side 2: Bottom Edge
+            if (y == lastCellIndex)
+            {
+                // the reason I'm reversing the index is to have consistent rotation 
+                // without the reverse, this edge would go from left edge (3) to right edge (1)
+                AddToEdgeCell(2, resolution - x - 2, triangleIndex);
+            }
+
+            // Side 3: Left Edge
+            if (x == 0)
+            {
+                AddToEdgeCell(3, resolution - y - 2, triangleIndex);
+            }
+        }
+
+        void AddToEdgeCell(int edgeIndex, int cellIndex, int val)
+        {
+            int cellsPerEdge = resolution - 1;
+            int cellsPerFace = 4 * cellsPerEdge;
+
+            int i = (faceIndex * cellsPerFace) + (edgeIndex * cellsPerEdge) + cellIndex;
+
+            FixedList128Bytes<int> cell = edgeCellTriangles[i];
+            cell.Add(val);
+            edgeCellTriangles[i] = cell;
         }
 
         private int GetOrAddCorner(int gridIndex, ref NativeArray<int> map, int x, int y)

@@ -1,23 +1,22 @@
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEditor.U2D.Aseprite;
+using UnityEngine;
 
 public struct MeshWeldJob : IJob
 {
-    [ReadOnly] public NativeArray<WeldData> faces;
+    [ReadOnly] public NativeArray<int> triangleOffsets;
+    [ReadOnly] public NativeArray<FixedList128Bytes<int>> edgeCellTriangles;
+
     [ReadOnly] public int resolution;
 
-    public NativeArray<float3> vertices;
+    [ReadOnly] public NativeArray<float3> vertices;
     public NativeArray<int> triangles;
-
-    private NativeArray<bool> connectedLookup;
-    private NativeArray<int2> cubeFaceConnections;
 
     public void Execute()
     {
-        cubeFaceConnections = new NativeArray<int2>(24, Allocator.Temp);
-        connectedLookup = new NativeArray<bool>(24, Allocator.Temp);
+        NativeArray<bool> connectedLookup = new NativeArray<bool>(24, Allocator.Temp);
+        NativeArray<int2> cubeFaceConnections = new NativeArray<int2>(24, Allocator.Temp);
         PopulateConnectionData(ref cubeFaceConnections);
 
         int cellCount = resolution - 1;
@@ -28,7 +27,7 @@ public struct MeshWeldJob : IJob
             {
                 ProcessEdgeConnection(
                     faceIndex, edgeIndex,
-                    cellCount
+                    cellCount, connectedLookup, cubeFaceConnections
                 );
             }
         }
@@ -38,42 +37,40 @@ public struct MeshWeldJob : IJob
 
     private void ProcessEdgeConnection(
         int faceIndexA, int edgeIndexA,
-        int cellCount)
+        int cellCount, NativeArray<bool> connectedLookup, NativeArray<int2> cubeFaceConnections)
     {
         // Determine neighbor
         int2 faceEdge = cubeFaceConnections[faceIndexA * 4 + edgeIndexA];
         int faceIndexB = faceEdge.x;
         int edgeIndexB = faceEdge.y;
         // Check if we already handled this seam from the other side
-        if (FacesAreConnectedOrMark(faceIndexA, edgeIndexA, faceIndexB, edgeIndexB))
+        if (FacesAreConnectedOrMark(faceIndexA, edgeIndexA, faceIndexB, edgeIndexB, connectedLookup))
             return;
 
         // Prepare data for the seam
-        WeldData faceA = faces[faceIndexA];
-        WeldData faceB = faces[faceIndexB];
-        int offsetA = GetTrianglesGlobalOffset(faceIndexA);
-        int offsetB = GetTrianglesGlobalOffset(faceIndexB);
+        int offsetA = triangleOffsets[faceIndexA];
+        int offsetB = triangleOffsets[faceIndexB];
 
         // Walk along the seam
         WeldSeam(
-            faceA, edgeIndexA, offsetA,
-            faceB, edgeIndexB, offsetB,
+            faceIndexA, edgeIndexA, offsetA,
+            faceIndexB, edgeIndexB, offsetB,
             cellCount
         );
     }
 
     private void WeldSeam(
-       WeldData faceA, int edgeA, int offsetA,
-       WeldData faceB, int edgeB, int offsetB,
+       int faceA, int edgeA, int offsetA,
+       int faceB, int edgeB, int offsetB,
        int cellCount)
     {
         for (int i = 0; i < cellCount; i++)
         {
             // Note: Neighbor edge runs in reverse direction relative to current edge
-            NativeList<int> cellA = WeldData.GetCell(edgeA, i, faceA.edgeCellTriangles, resolution);
-            NativeList<int> cellB = WeldData.GetCell(edgeB, cellCount - 1 - i, faceB.edgeCellTriangles, resolution);
+            FixedList128Bytes<int> cellA = GetCell(faceA, edgeA, i);
+            FixedList128Bytes<int> cellB = GetCell(faceB, edgeB, cellCount - 1 - i);
 
-            if (!cellA.IsCreated || !cellA.IsCreated) continue;
+            if (cellA.IsEmpty || cellB.IsEmpty) continue;
 
             WeldMatchingVerticesInCells(
                 cellA, offsetA,
@@ -82,9 +79,18 @@ public struct MeshWeldJob : IJob
         }
     }
 
+    private FixedList128Bytes<int> GetCell(int faceIndex, int edgeIndex, int cellIndex)
+    {
+        int cellsPerEdge = resolution - 1;
+        int cellsPerFace = 4 * cellsPerEdge;
+
+        int i = (faceIndex * cellsPerFace) + (edgeIndex * cellsPerEdge) + cellIndex;
+        return edgeCellTriangles[i];
+    }
+
     private void WeldMatchingVerticesInCells(
-        NativeList<int> cellA, int offsetA,
-        NativeList<int> cellB, int offsetB)
+        FixedList128Bytes<int> cellA, int offsetA,
+        FixedList128Bytes<int> cellB, int offsetB)
     {
         // Compare every vertex in Cell A with every vertex in Cell B
         for (int j = 0; j < cellA.Length; j++)
@@ -106,7 +112,7 @@ public struct MeshWeldJob : IJob
         }
     }
 
-    private bool FacesAreConnectedOrMark(int f1, int e1, int f2, int e2)
+    private bool FacesAreConnectedOrMark(int f1, int e1, int f2, int e2, NativeArray<bool> connectedLookup)
     {
         int id1 = f1 * 4 + e1;
         int id2 = f2 * 4 + e2;
@@ -116,11 +122,6 @@ public struct MeshWeldJob : IJob
         connectedLookup[id1] = true;
         connectedLookup[id2] = true;
         return false;
-    }
-    
-    int GetTrianglesGlobalOffset(int faceIndex)
-    {
-        return faces[faceIndex].triangleStart;
     }
 
     private static void PopulateConnectionData(ref NativeArray<int2> arr)

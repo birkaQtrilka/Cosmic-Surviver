@@ -24,16 +24,16 @@ public struct BiomeData
     public float blendAmount;
     public NativeArray<float> startHeights;
 }
-
+// instead of having multiple WeldData object, that each has a native array, have one giant native array with length facesNum (6) * resolution * 4 ...
 public struct WeldData
 {
     public int triangleStart;
     // 2d array. to get position
     public NativeArray<NativeList<int>> edgeCellTriangles;
 
-    public static NativeList<int> GetCell(int x, int y,   NativeArray<NativeList<int>> flattenedGridArray, int resolution)
+    public static NativeList<int> GetCell(int face, int x, int y, NativeArray<NativeList<int>> flattenedGridArray, int resolution)
     {
-        return flattenedGridArray[y * resolution + x];
+        return flattenedGridArray[6 * face + (y * (resolution-1) + x)];
     }
 }
 
